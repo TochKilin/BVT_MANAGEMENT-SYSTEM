@@ -5,10 +5,6 @@ import 'package:http/http.dart' as http;
 
 class VetApi {
   VetApi._();
-
-  /// Override for Android devices with --dart-define=API_URL=http://YOUR_PC_IP:8080.
-  // Android emulator maps the development machine to 10.0.2.2; iOS simulator uses 127.0.0.1.
-  // A physical device must use the Mac's LAN IP through --dart-define=API_URL=...
   static const _configuredBaseUrl = String.fromEnvironment('API_URL', defaultValue: '');
   static String get baseUrl => _configuredBaseUrl.isNotEmpty
       ? _configuredBaseUrl
@@ -25,7 +21,7 @@ class VetApi {
     required String gender,
     required String weight,
     String photo = '',
-  }) => _post('/api/owners', {
+  }) => _post('/api/v1/owners', {
         'name': ownerName,
         'phone': phone,
         'email': '',
@@ -44,15 +40,43 @@ class VetApi {
       });
 
   static Future<List<Map<String, dynamic>>> getPatients() async {
-    return _getList('/api/owners');
+    return _getList('/api/v1/owners');
   }
 
-  static Future<List<Map<String, dynamic>>> getMedicines() => _getList('/api/medicines');
-  static Future<List<Map<String, dynamic>>> getVaccinations() => _getList('/api/vaccinations');
-  static Future<List<Map<String, dynamic>>> getAppointments() => _getList('/api/appointments');
+  static Future<List<Map<String, dynamic>>> getMedicines() => _getList('/api/v1/medicines');
+  static Future<List<Map<String, dynamic>>> getVaccinations() => _getList('/api/v1/vaccinations');
+  static Future<List<Map<String, dynamic>>> getAppointments() => _getList('/api/v1/appointments');
+  static Future<List<Map<String, dynamic>>> getMedicalRecords() => _getList('/api/v1/records');
+
+  static Future<Map<String, dynamic>> createMedicalRecord({
+    required String ownerId,
+    required String animalId,
+    required String symptoms,
+    required String diagnosis,
+    required String treatment,
+    required List<Map<String, dynamic>> prescriptionItems,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/v1/records'),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'owner_id': ownerId,
+        'animal_id': animalId,
+        'symptoms': symptoms,
+        'diagnosis': diagnosis,
+        'treatment': treatment,
+        'prescription': {'items': prescriptionItems},
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(_message(response.body, response.statusCode));
+    }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return Map<String, dynamic>.from(decoded['data'] as Map);
+  }
 
   static Future<Map<String, dynamic>> getDashboardSummary() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/dashboard/summary'));
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/dashboard/summary'));
     if (response.statusCode != 200) throw ApiException(_message(response.body, response.statusCode));
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
@@ -63,7 +87,7 @@ class VetApi {
     return (jsonDecode(response.body) as List).cast<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
-  static Future<void> createMedicine({required String name, required String category, required String quantity, required String sellingPrice, String image = ''}) => _post('/api/medicines', {
+  static Future<void> createMedicine({required String name, required String category, required String quantity, required String sellingPrice, String image = ''}) => _post('/api/v1/medicines', {
         'name': name,
         'generic_name': '',
         'category': category,
@@ -83,7 +107,7 @@ class VetApi {
         ],
       });
 
-  static Future<void> createVaccination({required String ownerId, required String animalId, required String vaccineName, required DateTime nextDueAt, String image = ''}) => _post('/api/vaccinations', {
+  static Future<void> createVaccination({required String ownerId, required String animalId, required String vaccineName, required DateTime nextDueAt, String image = ''}) => _post('/api/v1/vaccinations', {
         'owner_id': ownerId,
         'animal_id': animalId,
         'vaccine_name': vaccineName,
@@ -92,7 +116,7 @@ class VetApi {
         'image': image,
       });
 
-  static Future<void> createAppointment({required String ownerId, required String animalId, required String reason, required DateTime scheduledAt}) => _post('/api/appointments', {
+  static Future<void> createAppointment({required String ownerId, required String animalId, required String reason, required DateTime scheduledAt}) => _post('/api/v1/appointments', {
         'owner_id': ownerId,
         'animal_id': animalId,
         'reason': reason,

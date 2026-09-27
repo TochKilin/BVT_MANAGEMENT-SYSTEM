@@ -70,12 +70,12 @@ class RecordController {
       final record = MedicalRecordModel.fromMap(body);
 
       final collection = await DatabaseService.getCollection('medical_records');
-      await collection.insertOne(record.toMap());
+      final result = await collection.insertOne(record.toMap());
 
       return Response.ok(
         jsonEncode({
           'message': 'Medical record created successfully',
-          'data': jsonSafe(record.toMap()),
+          'data': jsonSafe(result.document ?? record.toMap()),
         }),
         headers: {'content-type': 'application/json'},
       );

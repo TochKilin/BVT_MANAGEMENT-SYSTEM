@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is needed to scan medicine QR codes and barcodes.</string>
 	<!-- Local Dart API is HTTP during development. Replace with HTTPS in production. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

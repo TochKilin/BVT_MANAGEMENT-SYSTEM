@@ -69,6 +69,10 @@ class MedicineModel {
   final String genericName;
   final String categoryName;
   final String manufacturer;
+  final String dosageForm;
+  final String description;
+  final String unit;
+  final String barcode;
   final double purchasePrice;
   final double sellingPrice;
   final String image;
@@ -80,6 +84,10 @@ class MedicineModel {
     required this.genericName,
     required this.categoryName,
     required this.manufacturer,
+    this.dosageForm = '',
+    this.description = '',
+    this.unit = 'Bottle',
+    this.barcode = '',
     required this.purchasePrice,
     required this.sellingPrice,
     this.image = '',
@@ -116,6 +124,10 @@ class MedicineModel {
       genericName: map['generic_name']?.toString() ?? '',
       categoryName: extractCategory(map['category']),
       manufacturer: map['manufacturer']?.toString() ?? '',
+      dosageForm: map['dosage_form']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      unit: map['unit']?.toString() ?? 'Bottle',
+      barcode: map['barcode']?.toString() ?? '',
       purchasePrice: (map['purchase_price'] as num?)?.toDouble() ?? 0.0,
       sellingPrice: (map['selling_price'] as num?)?.toDouble() ?? 0.0,
       image: map['image']?.toString() ?? '',
@@ -134,6 +146,10 @@ class MedicineModel {
       'generic_name': genericName,
       'category': {'name': categoryName},
       'manufacturer': manufacturer,
+      'dosage_form': dosageForm,
+      'description': description,
+      'unit': unit,
+      'barcode': barcode,
       'purchase_price': purchasePrice,
       'selling_price': sellingPrice,
       'image': image,

@@ -51,7 +51,7 @@ class SupplierController {
         where.eq('name', supplier.name),
       );
       if (existing != null) {
-        return Response(409, body: jsonEncode({'error': 'អ្នកផ្គត់ផ្គង់ឈ្មោះនេះមានរួចហើយ'}), headers: _headers);
+        return Response(409, body: jsonEncode({'error': 'supplier heve already'}), headers: _headers);
       }
 
       final result = await (await DatabaseService.getCollection('suppliers')).insertOne(supplier.toMap());
@@ -96,7 +96,7 @@ class SupplierController {
         return Response(
           409,
           body: jsonEncode({
-            'error': 'មិនអាចលុបបានទេ ព្រោះមានស្តុកភ្ជាប់ជាមួយអ្នកផ្គត់ផ្គង់នេះ។ សូមកំណត់ជា inactive ជំនួសវិញ។'
+            'error': 'can not delete cuz your supplyer connect with the sale'
           }),
           headers: _headers,
         );

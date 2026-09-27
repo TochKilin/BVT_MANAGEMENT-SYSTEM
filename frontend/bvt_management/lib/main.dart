@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'screens/splash/splash_screen.dart';
 import 'screens/home/Home_screen.dart';
 import 'screens/auth/login.dart';
 import 'services/auth_api.dart';
@@ -18,12 +18,12 @@ class ChartMobileApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chart — Vet & Pharmacy',
       theme: ThemeData(
-        scaffoldBackgroundColor: ChartColors.bg,
+       scaffoldBackgroundColor: const Color(0xFFFFFFFF),
         fontFamily: GoogleFonts.ibmPlexSans().fontFamily,
         useMaterial3: true,
       ),
-      // ចាប់ផ្តើមកម្មវិធីតាមរយៈ AuthGate — ពិនិត្យថាតើមាន session ចាស់ឬអត់
-      home: const AuthGate(),
+      // Get start AuthGate 
+      home: const SplashScreen(),
       routes: {
         '/home': (_) => const HomeScreen(),
         '/login': (_) => const LoginScreen(),
@@ -32,9 +32,7 @@ class ChartMobileApp extends StatelessWidget {
   }
 }
 
-/// ពិនិត្យស្ថានភាព login ពេល app ចាប់ផ្តើម
-/// - បើមាន token ស្រាប់ (login រួច) → បង្ហាញ HomeScreen ដោយផ្ទាល់
-/// - បើមិនទាន់ login → បង្ហាញ LoginScreen (ដែលអាចចុចទៅ RegisterScreen)
+/// Check when login
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -43,11 +41,15 @@ class AuthGate extends StatelessWidget {
     return FutureBuilder<bool>(
       future: AuthApi.isLoggedIn(),
       builder: (context, snapshot) {
-        // កំពុងពិនិត្យ SharedPreferences
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            backgroundColor: ChartColors.bg,
-            body: Center(child: CircularProgressIndicator(color: ChartColors.teal)),
+            backgroundColor:  Color(0xFF1F2A2E),
+            body: Center(
+            child: CircularProgressIndicator(
+              color:  Color(0xFF1F2A2E),
+            ),
+          ),
+
           );
         }
 

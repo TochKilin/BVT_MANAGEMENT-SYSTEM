@@ -29,6 +29,7 @@ class UserModel {
   final String phone;
   final RoleModel role;
   final String status;
+  final String? avatarUrl;
   final DateTime createdAt;
 
   UserModel({
@@ -39,6 +40,7 @@ class UserModel {
     required this.phone,
     required this.role,
     this.status = 'active',
+    this.avatarUrl,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -51,6 +53,7 @@ class UserModel {
       phone: map['phone'] ?? '',
       role: RoleModel.fromMap(map['role'] as Map<String, dynamic>? ?? {}),
       status: map['status'] ?? 'active',
+      avatarUrl: map['avatarUrl'] as String?,
       createdAt: map['created_at'] is DateTime
           ? map['created_at'] as DateTime
           : DateTime.now(),
@@ -65,6 +68,7 @@ class UserModel {
       'phone': phone,
       'role': role.toMap(),
       'status': status,
+      'avatarUrl': avatarUrl,
       'created_at': createdAt,
     };
 

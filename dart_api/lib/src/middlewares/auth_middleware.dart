@@ -4,8 +4,8 @@ import '../utils/auth_helper.dart';
 Middleware checkJwt() {
   return (Handler innerHandler) {
     return (Request request) async {
-      // រំលងការឆែក Token សម្រាប់ Route Register/Login
-      if (request.url.path.startsWith('api/auth/')) {
+      // Check token
+      if (request.url.path.startsWith('api/v1/auth/')) {
         return innerHandler(request);
       }
 
@@ -21,7 +21,6 @@ Middleware checkJwt() {
         return Response.unauthorized('Invalid or expired Token');
       }
 
-      // បន្ថែម User payload ចូលក្នុង Request context
       final updatedRequest = request.change(context: {'user': jwt.payload});
       return innerHandler(updatedRequest);
     };

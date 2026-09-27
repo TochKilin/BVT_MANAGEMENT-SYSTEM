@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,7 +9,6 @@ class AuthApi {
 
   static const _tokenKey = 'auth_token';
   static const _userKey = 'auth_user';
-
   static Future<void> register({
     required String name,
     required String email,
@@ -17,7 +17,7 @@ class AuthApi {
     String role = 'User',
   }) async {
     final response = await http.post(
-      Uri.parse('${VetApi.baseUrl}/api/auth/register'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/register'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
         'name': name.trim(),
@@ -31,7 +31,7 @@ class AuthApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = _errorMessage(response.body, response.statusCode);
       if (message.toLowerCase().contains('email')) {
-        throw ApiException('អ៊ីមែលនេះមានគណនីរួចហើយ');
+        throw ApiException('Your email use already');
       }
       throw ApiException(message);
     }
@@ -42,7 +42,7 @@ class AuthApi {
     required String password,
   }) async {
     final response = await http.post(
-      Uri.parse('${VetApi.baseUrl}/api/auth/login'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/login'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
         'email': email.trim().toLowerCase(),
@@ -51,7 +51,7 @@ class AuthApi {
     );
 
     if (response.statusCode == 403) {
-      throw ApiException('អ៊ីមែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ');
+      throw ApiException('Incorrect email or password');
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(_errorMessage(response.body, response.statusCode));
@@ -62,17 +62,12 @@ class AuthApi {
     return data;
   }
 
-  /// ទាញព័ត៌មានប្រវត្តិរូបរបស់អ្នកប្រើដែលកំពុង login
-  ///
-  /// ចំណាំ: endpoint ខាងក្រោមសន្មតថាមាន GET /api/auth/me នៅ backend
-  /// (ដូចគ្នានឹងអ្វីដែល login ប្រើ prefix /api/auth/...)។ បើ backend
-  /// របស់អ្នកប្រើ path ផ្សេង សូមកែ Uri.parse ខាងក្រោមតែប៉ុណ្ណោះ។
   static Future<Map<String, dynamic>> getProfile() async {
     final token = await getToken();
-    if (token == null) throw ApiException('សូមចូលប្រព័ន្ធសិន');
+    if (token == null) throw ApiException('please enter to system');
 
     final response = await http.get(
-      Uri.parse('${VetApi.baseUrl}/api/auth/me'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/me'),
       headers: {
         'content-type': 'application/json',
         'authorization': 'Bearer $token',
@@ -84,24 +79,19 @@ class AuthApi {
     }
 
     final decoded = jsonDecode(response.body);
-    // ខ្លះ backend រុំក្នុង { user: {...} } ខ្លះទៀតបញ្ជូនផ្ទាល់
     if (decoded is Map && decoded['user'] is Map) {
       return Map<String, dynamic>.from(decoded['user'] as Map);
     }
     return Map<String, dynamic>.from(decoded as Map);
   }
 
-  /// កែសម្រួល ឈ្មោះ/អ៊ីមែល/លេខទូរស័ព្ទ
-  ///
-  /// ចំណាំ: endpoint ខាងក្រោមសន្មតថាមាន PUT /api/auth/profile។
-  /// កែ Uri.parse ខាងក្រោមឲ្យត្រូវនឹង route ជាក់ស្តែងរបស់ backend បើខុសពីនេះ។
   static Future<void> updateProfile({
     String? name,
     String? email,
     String? phone,
   }) async {
     final token = await getToken();
-    if (token == null) throw ApiException('សូមចូលប្រព័ន្ធសិន');
+    if (token == null) throw ApiException('PLease enter to system');
 
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name.trim();
@@ -109,7 +99,7 @@ class AuthApi {
     if (phone != null) body['phone'] = phone.trim();
 
     final response = await http.put(
-      Uri.parse('${VetApi.baseUrl}/api/auth/profile'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/profile'),
       headers: {
         'content-type': 'application/json',
         'authorization': 'Bearer $token',
@@ -120,12 +110,11 @@ class AuthApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = _errorMessage(response.body, response.statusCode);
       if (message.toLowerCase().contains('email')) {
-        throw ApiException('អ៊ីមែលនេះមានគណនីរួចហើយ');
+        throw ApiException('Your email have already');
       }
       throw ApiException(message);
     }
 
-    // ធ្វើបច្ចុប្បន្នភាព cache ក្នុងម៉ាស៊ីនផងដែរ ដើម្បីកុំឲ្យទិន្នន័យចាស់
     final current = await getUser() ?? <String, dynamic>{};
     if (name != null) current['name'] = name.trim();
     if (email != null) current['email'] = email.trim().toLowerCase();
@@ -134,19 +123,50 @@ class AuthApi {
     await prefs.setString(_userKey, jsonEncode(current));
   }
 
-  /// ប្តូរពាក្យសម្ងាត់
-  ///
-  /// ចំណាំ: endpoint ខាងក្រោមសន្មតថាមាន PUT /api/auth/password ដែលទទួល
-  /// { currentPassword, newPassword }។ កែតាម backend ជាក់ស្តែងបើផ្សេង។
+  static Future<String> updateAvatar(File imageFile) async {
+    final token = await getToken();
+    if (token == null) throw ApiException('Please login to system');
+
+    final request = http.MultipartRequest(
+      'PUT',
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/avatar'),
+    );
+    request.headers['authorization'] = 'Bearer $token';
+    request.files.add(await http.MultipartFile.fromPath('avatar', imageFile.path));
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(_errorMessage(response.body, response.statusCode));
+    }
+
+    final decoded = jsonDecode(response.body);
+    String? avatarUrl;
+    if (decoded is Map) {
+      final user = decoded['user'];
+      avatarUrl = decoded['avatarUrl']?.toString() ??
+          decoded['avatar']?.toString() ??
+          (user is Map ? user['avatarUrl']?.toString() : null);
+    }
+
+    final current = await getUser() ?? <String, dynamic>{};
+    if (avatarUrl != null) current['avatarUrl'] = avatarUrl;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(current));
+
+    return avatarUrl ?? '';
+  }
+
   static Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
     final token = await getToken();
-    if (token == null) throw ApiException('សូមចូលប្រព័ន្ធសិន');
+    if (token == null) throw ApiException('please login to system');
 
     final response = await http.put(
-      Uri.parse('${VetApi.baseUrl}/api/auth/password'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/password'),
       headers: {
         'content-type': 'application/json',
         'authorization': 'Bearer $token',
@@ -158,8 +178,28 @@ class AuthApi {
     );
 
     if (response.statusCode == 403 || response.statusCode == 401) {
-      throw ApiException('ពាក្យសម្ងាត់បច្ចុប្បន្នមិនត្រឹមត្រូវ');
+      throw ApiException('your password present is false');
     }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(_errorMessage(response.body, response.statusCode));
+    }
+  }
+
+  /// Password reset used by the mock OTP flow. The server updates the account
+  /// found by its registered email address or phone number.
+  static Future<void> resetPassword({
+    required String contact,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${VetApi.baseUrl}/api/v1/auth/reset-password'),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'contact': contact.trim(),
+        'newPassword': newPassword,
+      }),
+    );
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(_errorMessage(response.body, response.statusCode));
     }

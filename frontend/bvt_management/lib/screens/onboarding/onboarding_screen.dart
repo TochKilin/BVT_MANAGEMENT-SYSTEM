@@ -22,9 +22,7 @@ class VetApp extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// 1. ONBOARDING SCREEN (ដូចរូបភាព UI)
-// =============================================================================
+// Bord screen
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
@@ -61,7 +59,7 @@ class OnboardingScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -189,7 +187,7 @@ class OnboardingScreen extends StatelessWidget {
   }
 }
 
-// Graphic Painter (សម្រាប់បង្កើតរូបគំនូរ Doctor & Pet)
+// Graphic Painter 
 class VetIllustrationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -215,9 +213,7 @@ class VetIllustrationPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// =============================================================================
-// 2. DASHBOARD HOME SCREEN WITH MOCK DATA
-// =============================================================================
+// Home board
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -239,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
             Text(
-              'Good morning, Admin 👋',
+              'Good morning, Admin',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             Text(
@@ -280,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 2x2 Metric Cards (ប្រើ Mock Data)
+            // Metric Cards 
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -344,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 12),
-            ...MockData.medicines.map((item) => _buildMedicineCard(item)).toList(),
+            ...MockData.medicines.map((item) => _buildMedicineCard(item)),
           ],
         ),
       ),
@@ -468,14 +464,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// =============================================================================
-// 3. MOCK DATA CLASS
-// =============================================================================
+
 class MockData {
   static final Map<String, dynamic> dashboard = {
     "medicines_count": 248,
     "low_stock_count": 12,
-    "expiring_count": 8,
+    "expiring_count": 18,
     "patients_count": 1284,
   };
 

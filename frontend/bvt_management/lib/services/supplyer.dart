@@ -1,14 +1,12 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import 'vet_api.dart';
 
 class SupplierApi {
   SupplierApi._();
 
   static Future<List<Map<String, dynamic>>> getSuppliers() async {
-    final response = await http.get(Uri.parse('${VetApi.baseUrl}/api/suppliers'));
+    final response = await http.get(Uri.parse('${VetApi.baseUrl}/api/v1/suppliers'));
     if (response.statusCode != 200) throw ApiException(_message(response.body, response.statusCode));
     return (jsonDecode(response.body) as List).cast<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
   }
@@ -20,7 +18,7 @@ class SupplierApi {
     String email = '',
     String address = '',
     String notes = '',
-  }) => _post('/api/suppliers', {
+  }) => _post('/api/v1/suppliers', {
         'name': name,
         'contact_person': contactPerson,
         'phone': phone,
@@ -31,7 +29,7 @@ class SupplierApi {
 
   static Future<void> updateSupplier(String id, Map<String, dynamic> data) async {
     final response = await http.put(
-      Uri.parse('${VetApi.baseUrl}/api/suppliers/$id'),
+      Uri.parse('${VetApi.baseUrl}/api/v1/suppliers/$id'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode(data),
     );
@@ -41,7 +39,7 @@ class SupplierApi {
   }
 
   static Future<void> deleteSupplier(String id) async {
-    final response = await http.delete(Uri.parse('${VetApi.baseUrl}/api/suppliers/$id'));
+    final response = await http.delete(Uri.parse('${VetApi.baseUrl}/api/v1/suppliers/$id'));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(_message(response.body, response.statusCode));
     }

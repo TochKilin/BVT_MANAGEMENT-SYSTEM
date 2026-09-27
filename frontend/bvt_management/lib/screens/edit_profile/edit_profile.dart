@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../home/Home_screen.dart' show ChartColors;
 import '../../services/auth_api.dart';
 import '../../services/vet_api.dart' show ApiException;
 
-
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
+
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
@@ -57,7 +56,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _email.text = profile['email']?.toString() ?? '';
       _phone.text = profile['phone']?.toString() ?? '';
     } catch (_) {
-      // បើទាញព័ត៌មានមិនបាន អ្នកប្រើនៅតែអាចបំពេញដោយដៃបាន
     } finally {
       if (mounted) setState(() => _loadingProfile = false);
     }
@@ -105,19 +103,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  void _snack(String text, {bool isError = true}) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(text), backgroundColor: isError ? ChartColors.rose : ChartColors.teal),
-      );
+  // Red snackbar for errors
+  void _snack(String text, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor:
+            isError ? const Color(0xFFE05C86) : const Color(0xFF0E6B5C),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ChartColors.bg,
+      backgroundColor: const Color(0xFFEAE7E1),
       appBar: AppBar(
-        backgroundColor: ChartColors.bg,
+        backgroundColor: const Color(0xFFEAE7E1),
         elevation: 0,
-        iconTheme: const IconThemeData(color: ChartColors.ink),
-        title: Text('កែសម្រួលប្រវត្តិរូប', style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.w700, color: ChartColors.ink)),
+        iconTheme: const IconThemeData(color: Color(0xFF1A202C)),
+        title: Text(
+          'កែសម្រួលប្រវត្តិរូប',
+          style: GoogleFonts.fraunces(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1A202C),
+          ),
+        ),
       ),
       body: SafeArea(
         child: _loadingProfile
@@ -129,130 +141,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     _avatar(),
                     const SizedBox(height: 28),
-
-                    // ---------- ព័ត៌មានទូទៅ ----------
                     _sectionLabel('ព័ត៌មានទូទៅ'),
                     const SizedBox(height: 14),
-                    Form(
-                      key: _infoFormKey,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _fieldLabel('ឈ្មោះពេញ'),
-                        _field(
-                          controller: _name,
-                          hint: 'ឧ. Dr. Dara',
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'សូមបញ្ចូលឈ្មោះ' : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        _fieldLabel('អ៊ីមែល'),
-                        _field(
-                          controller: _email,
-                          hint: 'you@example.com',
-                          keyboard: TextInputType.emailAddress,
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'សូមបញ្ចូលអ៊ីមែល';
-                            if (!v.contains('@') || !v.contains('.')) return 'អ៊ីមែលមិនត្រឹមត្រូវ';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        _fieldLabel('លេខទូរស័ព្ទ'),
-                        _field(
-                          controller: _phone,
-                          hint: 'ឧ. 0977 123 456',
-                          keyboard: TextInputType.phone,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'សូមបញ្ចូលលេខទូរស័ព្ទ' : null,
-                        ),
-                        const SizedBox(height: 22),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: _savingInfo ? null : _saveInfo,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: ChartColors.teal,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                            ),
-                            child: _savingInfo
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('រក្សាទុកព័ត៌មាន', style: TextStyle(fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ]),
-                    ),
-
+                    _buildInfoForm(),
                     const SizedBox(height: 34),
-                    Container(height: 1, color: ChartColors.line),
+                    Container(height: 1, color: const Color(0xFFE2E8F0)),
                     const SizedBox(height: 26),
-
-                    // ---------- ប្តូរពាក្យសម្ងាត់ ----------
                     _sectionLabel('ប្តូរពាក្យសម្ងាត់'),
                     const SizedBox(height: 14),
-                    Form(
-                      key: _passwordFormKey,
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _fieldLabel('ពាក្យសម្ងាត់បច្ចុប្បន្ន'),
-                        _field(
-                          controller: _currentPassword,
-                          hint: '••••••••',
-                          obscure: _obscureCurrent,
-                          suffix: IconButton(
-                            icon: Icon(_obscureCurrent ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: ChartColors.inkSoft, size: 20),
-                            onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                          ),
-                          validator: (v) => (v == null || v.isEmpty) ? 'សូមបញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្ន' : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        _fieldLabel('ពាក្យសម្ងាត់ថ្មី'),
-                        _field(
-                          controller: _newPassword,
-                          hint: 'យ៉ាងតិច ៦ តួអក្សរ',
-                          obscure: _obscureNew,
-                          suffix: IconButton(
-                            icon: Icon(_obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: ChartColors.inkSoft, size: 20),
-                            onPressed: () => setState(() => _obscureNew = !_obscureNew),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'សូមបញ្ចូលពាក្យសម្ងាត់ថ្មី';
-                            if (v.length < 6) return 'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៦ តួអក្សរ';
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        _fieldLabel('បញ្ជាក់ពាក្យសម្ងាត់ថ្មី'),
-                        _field(
-                          controller: _confirmNewPassword,
-                          hint: 'វាយបញ្ចូលម្តងទៀត',
-                          obscure: _obscureConfirm,
-                          suffix: IconButton(
-                            icon: Icon(_obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: ChartColors.inkSoft, size: 20),
-                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                          ),
-                          validator: (v) => (v != _newPassword.text) ? 'ពាក្យសម្ងាត់មិនដូចគ្នាទេ' : null,
-                        ),
-                        const SizedBox(height: 22),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: _savingPassword ? null : _savePassword,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: ChartColors.teal,
-                              side: const BorderSide(color: ChartColors.teal, width: 1.4),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                            ),
-                            child: _savingPassword
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: ChartColors.teal, strokeWidth: 2))
-                                : const Text('ប្តូរពាក្យសម្ងាត់', style: TextStyle(fontWeight: FontWeight.w700)),
-                          ),
-                        ),
-                      ]),
-                    ),
+                    _buildPasswordForm(),
                   ],
                 ),
               ),
@@ -260,25 +157,230 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _avatar() => Center(
-        child: Column(children: [
+  // Name, email and phone
+  Widget _buildInfoForm() {
+    return Form(
+      key: _infoFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _fieldLabel('ឈ្មោះពេញ'),
+          _field(
+            controller: _name,
+            hint: 'ឧ. Dr. Dara',
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'សូមបញ្ចូលឈ្មោះ' : null,
+          ),
+          const SizedBox(height: 16),
+          _fieldLabel('អ៊ីមែល'),
+          _field(
+            controller: _email,
+            hint: 'you@example.com',
+            keyboard: TextInputType.emailAddress,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'សូមបញ្ចូលអ៊ីមែល';
+              if (!v.contains('@') || !v.contains('.')) {
+                return 'អ៊ីមែលមិនត្រឹមត្រូវ';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _fieldLabel('លេខទូរស័ព្ទ'),
+          _field(
+            controller: _phone,
+            hint: 'ឧ. 0977 123 456',
+            keyboard: TextInputType.phone,
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'សូមបញ្ចូលលេខទូរស័ព្ទ'
+                : null,
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _savingInfo ? null : _saveInfo,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0E6B5C),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              child: _savingInfo
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'រក្សាទុកព័ត៌មាន',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Current, new and confirm password
+  Widget _buildPasswordForm() {
+    return Form(
+      key: _passwordFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _fieldLabel('ពាក្យសម្ងាត់បច្ចុប្បន្ន'),
+          _field(
+            controller: _currentPassword,
+            hint: '••••••••',
+            obscure: _obscureCurrent,
+            suffix: _visibilityToggle(
+              obscured: _obscureCurrent,
+              onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+            ),
+            validator: (v) => (v == null || v.isEmpty)
+                ? 'សូមបញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្ន'
+                : null,
+          ),
+          const SizedBox(height: 16),
+          _fieldLabel('ពាក្យសម្ងាត់ថ្មី'),
+          _field(
+            controller: _newPassword,
+            hint: 'យ៉ាងតិច ៦ តួអក្សរ',
+            obscure: _obscureNew,
+            suffix: _visibilityToggle(
+              obscured: _obscureNew,
+              onPressed: () => setState(() => _obscureNew = !_obscureNew),
+            ),
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'សូមបញ្ចូលពាក្យសម្ងាត់ថ្មី';
+              if (v.length < 6) {
+                return 'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៦ តួអក្សរ';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          _fieldLabel('បញ្ជាក់ពាក្យសម្ងាត់ថ្មី'),
+          _field(
+            controller: _confirmNewPassword,
+            hint: 'វាយបញ្ចូលម្តងទៀត',
+            obscure: _obscureConfirm,
+            suffix: _visibilityToggle(
+              obscured: _obscureConfirm,
+              onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            ),
+            validator: (v) =>
+                (v != _newPassword.text) ? 'ពាក្យសម្ងាត់មិនដូចគ្នាទេ' : null,
+          ),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _savingPassword ? null : _savePassword,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0E6B5C),
+                side: const BorderSide(color: Color(0xFF0E6B5C), width: 1.4),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+              child: _savingPassword
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF0E6B5C),
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'ប្តូរពាក្យសម្ងាត់',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Eye icon that shows or hides a password field
+  Widget _visibilityToggle({
+    required bool obscured,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(
+        obscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+        color: const Color(0xFF4A5568),
+        size: 20,
+      ),
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _avatar() {
+    return Center(
+      child: Column(
+        children: [
           Container(
             width: 84,
             height: 84,
-            decoration: BoxDecoration(color: ChartColors.tealTint, borderRadius: BorderRadius.circular(24)),
-            child: const Icon(Icons.person_rounded, color: ChartColors.teal, size: 40),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0F2EF),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: Color(0xFF0E6B5C),
+              size: 40,
+            ),
           ),
           const SizedBox(height: 10),
-          Text(_name.text.isEmpty ? 'អ្នកប្រើប្រាស់' : _name.text, style: GoogleFonts.fraunces(fontSize: 17, fontWeight: FontWeight.w700, color: ChartColors.ink)),
-        ]),
-      );
+          Text(
+            _name.text.isEmpty ? 'អ្នកប្រើប្រាស់' : _name.text,
+            style: GoogleFonts.fraunces(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A202C),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _sectionLabel(String text) => Text(text, style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.w700, color: ChartColors.ink));
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.fraunces(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF1A202C),
+      ),
+    );
+  }
 
-  Widget _fieldLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, left: 2),
-        child: Text(text, style: const TextStyle(color: ChartColors.ink, fontWeight: FontWeight.w600, fontSize: 13)),
-      );
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 2),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF1A202C),
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
 
   Widget _field({
     required TextEditingController controller,
@@ -287,23 +389,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bool obscure = false,
     Widget? suffix,
     String? Function(String?)? validator,
-  }) =>
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboard,
-        obscureText: obscure,
-        validator: validator,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: ChartColors.inkSoft),
-          filled: true,
-          fillColor: Colors.white,
-          suffixIcon: suffix,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: ChartColors.line)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: ChartColors.line)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: ChartColors.teal, width: 1.5)),
-          errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: ChartColors.rose)),
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboard,
+      obscureText: obscure,
+      validator: validator,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFF4A5568)),
+        filled: true,
+        fillColor: Colors.white,
+        suffixIcon: suffix,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-      );
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFF0E6B5C), width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE05C86)),
+        ),
+      ),
+    );
+  }
 }

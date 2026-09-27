@@ -8,7 +8,7 @@ class SupplierModel {
   final String email;
   final String address;
   final String notes;
-  final String status; // active | inactive
+  final String status; 
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -52,7 +52,7 @@ class SupplierModel {
     };
   }
 
-  /// សម្រាប់ update — មិនរួម created_at ទេ ព្រោះមិនគួរប្តូរ
+  /// Update
   Map<String, dynamic> toUpdateMap() {
     return {
       'name': name,
