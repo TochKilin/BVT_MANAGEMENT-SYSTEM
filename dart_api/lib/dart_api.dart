@@ -8,7 +8,7 @@ class DatabaseService {
     if (_db == null || !_db!.isConnected) {
       _db = await Db.create(_mongoUri);
       await _db!.open();
-      print('✅ MongoDB Connected Successfully!');
+      print('MongoDB Connected Successfully!');
     }
     return _db!;
   }
@@ -17,7 +17,7 @@ class DatabaseService {
     await db;
   }
 
-  // ប្រើ Future<DbCollection> ដើម្បីធានាថាបាន Connect រួចរាល់មុន Return Collection
+  // Future<DbCollection> Return Collection
   static Future<DbCollection> getCollection(String collectionName) async {
     final instance = await db;
     return instance.collection(collectionName);

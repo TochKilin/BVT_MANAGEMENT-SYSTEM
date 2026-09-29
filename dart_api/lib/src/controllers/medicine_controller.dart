@@ -76,7 +76,7 @@ class MedicineController {
       if (existing != null) {
         return Response(
           409,
-          body: jsonEncode({'error': 'ថ្នាំឈ្មោះនេះមានរួចហើយ'}),
+          body: jsonEncode({'error': 'Medicine have already'}),
           headers: _headers,
         );
       }
@@ -184,12 +184,12 @@ class MedicineController {
       final quantity = body['quantity'];
       if (quantity == null || (quantity is num && quantity <= 0)) {
         return Response.badRequest(
-          body: jsonEncode({'error': 'quantity ត្រូវធំជាង 0'}),
+          body: jsonEncode({'error': 'quantity more than 0'}),
           headers: _headers,
         );
       }
 
-      // ប្រែ supplier_id ពី String ទៅ ObjectId បើមាន
+      // supplier_id from String ទៅ ObjectId 
       if (body['supplier_id'] != null &&
           body['supplier_id'].toString().trim().isNotEmpty) {
         try {
