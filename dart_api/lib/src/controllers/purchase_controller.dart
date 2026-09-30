@@ -33,15 +33,39 @@ class PurchaseController {
       final items = <Map<String, dynamic>>[];
       var total = 0.0;
       for (final input in inputItems) {
-        final medicineId = _id(input['medicine_id']);
+        final productType = input['product_type']?.toString() ?? 'medicine';
         final qty = input['quantity'];
         final price = input['purchase_price'];
-        if (medicineId == null || qty is! num || qty <= 0 || price is! num || price < 0) {
-          return Response.badRequest(body: jsonEncode({'error': 'Each item needs a valid medicine, quantity, and purchase_price'}), headers: _headers);
+        if (!['medicine', 'vaccine'].contains(productType) ||
+            qty is! num || qty <= 0 || price is! num || price < 0) {
+          return Response.badRequest(body: jsonEncode({'error': 'Each item needs a valid type, quantity, and purchase_price'}), headers: _headers);
         }
-        final medicine = await (await DatabaseService.getCollection('medicines')).findOne(where.id(medicineId));
-        if (medicine == null) return Response.badRequest(body: jsonEncode({'error': 'Medicine not found'}), headers: _headers);
-        items.add({'medicine_id': medicineId, 'medicine_name': medicine['name'], 'quantity': qty, 'purchase_price': price});
+        if (productType == 'medicine') {
+          final medicineId = _id(input['medicine_id']);
+          if (medicineId == null) return Response.badRequest(body: jsonEncode({'error': 'Valid medicine_id is required'}), headers: _headers);
+          final medicines = await DatabaseService.getCollection('medicines');
+          final medicine = await medicines.findOne(where.id(medicineId));
+          if (medicine == null) return Response.badRequest(body: jsonEncode({'error': 'Medicine not found'}), headers: _headers);
+          items.add({'product_type': productType, 'medicine_id': medicineId, 'medicine_name': medicine['name'], 'product_name': medicine['name'], 'quantity': qty, 'purchase_price': price});
+          final batches = (medicine['batches'] as List? ?? const []).toList();
+          batches.add({
+            'batch_number': 'PO-${DateTime.now().millisecondsSinceEpoch}',
+            'manufacture_date': DateTime.now().toIso8601String(),
+            'expiry_date': DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+            'received_at': DateTime.now().toIso8601String(),
+            'quantity': qty,
+            'purchase_price': price,
+            'selling_price': medicine['selling_price'] ?? 0,
+            'supplier_id': supplierId,
+          });
+          await medicines.updateOne(where.id(medicineId), {
+            r'$set': {'batches': batches, 'updated_at': DateTime.now().toIso8601String()},
+          });
+        } else {
+          final productName = input['product_name']?.toString().trim() ?? '';
+          if (productName.isEmpty) return Response.badRequest(body: jsonEncode({'error': 'Vaccine name is required'}), headers: _headers);
+          items.add({'product_type': productType, 'product_name': productName, 'vaccine_name': productName, 'quantity': qty, 'purchase_price': price});
+        }
         total += qty * price;
       }
 
