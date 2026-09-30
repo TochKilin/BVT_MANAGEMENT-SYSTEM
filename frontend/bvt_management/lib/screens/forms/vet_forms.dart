@@ -2,24 +2,33 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/vet_api.dart';
-import '../home/Home_screen.dart';
 
 enum VetFormType { patient, medicine, vaccination, appointment }
 
 /// Opens the bottom sheet form
-Future<bool?> showVetForm(BuildContext context, VetFormType type) {
+Future<bool?> showVetForm(
+  BuildContext context,
+  VetFormType type, {
+  Map<String, dynamic>? owner,
+  Map<String, dynamic>? animal,
+  Map<String, dynamic>? record,
+}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _VetForm(type: type),
+    builder: (_) =>
+        _VetForm(type: type, owner: owner, animal: animal, record: record),
   );
 }
 
 class _VetForm extends StatefulWidget {
   final VetFormType type;
+  final Map<String, dynamic>? owner;
+  final Map<String, dynamic>? animal;
+  final Map<String, dynamic>? record;
 
-  const _VetForm({required this.type});
+  const _VetForm({required this.type, this.owner, this.animal, this.record});
 
   @override
   State<_VetForm> createState() => _VetFormState();
@@ -57,6 +66,34 @@ class _VetFormState extends State<_VetForm> {
   @override
   void initState() {
     super.initState();
+    final owner = widget.owner;
+    final animal = widget.animal;
+    if (owner != null && animal != null) {
+      _owner.text = owner['name']?.toString() ?? '';
+      _phone.text = owner['phone']?.toString() ?? '';
+      _animal.text = animal['name']?.toString() ?? '';
+      _species = animal['species']?.toString() ?? 'Dog';
+      _breed.text = animal['breed']?.toString() ?? '';
+      _gender = animal['gender']?.toString() ?? 'Male';
+      _weight.text = animal['weight']?.toString() ?? '';
+      _image = animal['photo']?.toString() ?? '';
+    }
+    if (widget.type == VetFormType.vaccination && widget.record != null) {
+      final record = widget.record!;
+      _name.text = record['vaccine_name']?.toString() ?? '';
+      _image = record['image']?.toString() ?? '';
+      _selectedOwnerId = record['owner_id']?.toString() ?? '';
+      _selectedAnimalId = record['animal_id']?.toString() ?? '';
+      _date =
+          DateTime.tryParse(record['next_due_at']?.toString() ?? '') ?? _date;
+    }
+    if (widget.type == VetFormType.appointment && widget.record != null) {
+      final record = widget.record!;
+      _reason.text = record['reason']?.toString() ?? '';
+      _selectedOwnerId = record['owner_id']?.toString() ?? '';
+      _selectedAnimalId = record['animal_id']?.toString() ?? '';
+      _date = DateTime.tryParse(record['scheduled_at']?.toString() ?? '') ?? _date;
+    }
     if (_needsPatientPicker) _loadPatients();
   }
 
@@ -88,7 +125,7 @@ class _VetFormState extends State<_VetForm> {
     }
   }
 
-  // Pick a photo from the gallery 
+  // Pick a photo from the gallery
   Future<void> _pickImage() async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
@@ -135,16 +172,31 @@ class _VetFormState extends State<_VetForm> {
     try {
       switch (widget.type) {
         case VetFormType.patient:
-          await VetApi.createPatient(
-            ownerName: _owner.text.trim(),
-            phone: _phone.text.trim(),
-            animalName: _animal.text.trim(),
-            species: _species,
-            breed: _breed.text.trim(),
-            gender: _gender,
-            weight: _weight.text.trim(),
-            photo: _image,
-          );
+          if (widget.owner != null && widget.animal != null) {
+            await VetApi.updatePatient(
+              ownerId: widget.owner!['_id'].toString(),
+              animalId: widget.animal!['_id'].toString(),
+              ownerName: _owner.text.trim(),
+              phone: _phone.text.trim(),
+              animalName: _animal.text.trim(),
+              species: _species,
+              breed: _breed.text.trim(),
+              gender: _gender,
+              weight: _weight.text.trim(),
+              photo: _image,
+            );
+          } else {
+            await VetApi.createPatient(
+              ownerName: _owner.text.trim(),
+              phone: _phone.text.trim(),
+              animalName: _animal.text.trim(),
+              species: _species,
+              breed: _breed.text.trim(),
+              gender: _gender,
+              weight: _weight.text.trim(),
+              photo: _image,
+            );
+          }
         case VetFormType.medicine:
           await VetApi.createMedicine(
             name: _name.text.trim(),
@@ -154,20 +206,41 @@ class _VetFormState extends State<_VetForm> {
             image: _image,
           );
         case VetFormType.vaccination:
-          await VetApi.createVaccination(
-            ownerId: _selectedOwnerId,
-            animalId: _selectedAnimalId,
-            vaccineName: _name.text.trim(),
-            nextDueAt: _date,
-            image: _image,
-          );
+          if (widget.record != null) {
+            await VetApi.updateVaccination(
+              id: widget.record!['_id'].toString(),
+              ownerId: _selectedOwnerId,
+              animalId: _selectedAnimalId,
+              vaccineName: _name.text.trim(),
+              nextDueAt: _date,
+              image: _image,
+            );
+          } else {
+            await VetApi.createVaccination(
+              ownerId: _selectedOwnerId,
+              animalId: _selectedAnimalId,
+              vaccineName: _name.text.trim(),
+              nextDueAt: _date,
+              image: _image,
+            );
+          }
         case VetFormType.appointment:
-          await VetApi.createAppointment(
-            ownerId: _selectedOwnerId,
-            animalId: _selectedAnimalId,
-            reason: _reason.text.trim(),
-            scheduledAt: _date,
-          );
+          if (widget.record != null) {
+            await VetApi.updateAppointment(
+              id: widget.record!['_id'].toString(),
+              ownerId: _selectedOwnerId,
+              animalId: _selectedAnimalId,
+              reason: _reason.text.trim(),
+              scheduledAt: _date,
+            );
+          } else {
+            await VetApi.createAppointment(
+              ownerId: _selectedOwnerId,
+              animalId: _selectedAnimalId,
+              reason: _reason.text.trim(),
+              scheduledAt: _date,
+            );
+          }
       }
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (error) {
@@ -180,17 +253,17 @@ class _VetFormState extends State<_VetForm> {
   }
 
   void _snack(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   String get _title => switch (widget.type) {
-        VetFormType.patient => 'បន្ថែមអ្នកជំងឺ',
-        VetFormType.medicine => 'បន្ថែមថ្នាំ',
-        VetFormType.vaccination => 'កត់ត្រាវ៉ាក់សាំង',
-        VetFormType.appointment => 'កំណត់ការណាត់ជួប',
-      };
+    VetFormType.patient =>
+      widget.animal == null ? 'បន្ថែមអ្នកជំងឺ' : 'កែប្រែអ្នកជំងឺ',
+    VetFormType.medicine => 'បន្ថែមថ្នាំ',
+    VetFormType.vaccination =>
+      widget.record == null ? 'កត់ត្រាវ៉ាក់សាំង' : 'កែប្រែវ៉ាក់សាំង',
+    VetFormType.appointment => widget.record == null ? 'កំណត់ការណាត់ជួប' : 'កែប្រែការណាត់ជួប',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +277,7 @@ class _VetFormState extends State<_VetForm> {
           20 + MediaQuery.viewInsetsOf(context).bottom,
         ),
         decoration: const BoxDecoration(
-          color: Colors.white, 
+          color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Form(
@@ -291,19 +364,17 @@ class _VetFormState extends State<_VetForm> {
       _field(_owner, 'ឈ្មោះម្ចាស់សត្វ *'),
       _field(_phone, 'លេខទូរស័ព្ទ *', keyboard: TextInputType.phone),
       _field(_animal, 'ឈ្មោះសត្វ *'),
-      _select(
-        'ប្រភេទសត្វ',
-        _species,
-        ['Dog', 'Cat', 'Bird', 'Other'],
-        (v) => setState(() => _species = v!),
-      ),
+      _select('ប្រភេទសត្វ', _species, [
+        'Dog',
+        'Cat',
+        'Bird',
+        'Other',
+      ], (v) => setState(() => _species = v!)),
       _field(_breed, 'ពូជសត្វ'),
-      _select(
-        'ភេទ',
-        _gender,
-        ['Male', 'Female'],
-        (v) => setState(() => _gender = v!),
-      ),
+      _select('ភេទ', _gender, [
+        'Male',
+        'Female',
+      ], (v) => setState(() => _gender = v!)),
       _field(_weight, 'ទម្ងន់ (kg)', keyboard: TextInputType.number),
     ];
   }
@@ -343,7 +414,8 @@ class _VetFormState extends State<_VetForm> {
             _selectedAnimalId = '';
           }),
           labels: {
-            for (final p in _patients) p['_id'].toString(): p['name'].toString(),
+            for (final p in _patients)
+              p['_id'].toString(): p['name'].toString(),
           },
         ),
         if (_selectedOwnerId.isNotEmpty)
@@ -353,7 +425,8 @@ class _VetFormState extends State<_VetForm> {
             _animals.map((a) => a['_id'].toString()).toList(),
             (value) => setState(() => _selectedAnimalId = value!),
             labels: {
-              for (final a in _animals) a['_id'].toString(): a['name'].toString(),
+              for (final a in _animals)
+                a['_id'].toString(): a['name'].toString(),
             },
           ),
       ],
@@ -373,8 +446,8 @@ class _VetFormState extends State<_VetForm> {
         keyboardType: keyboard,
         validator: (value) =>
             label.contains('*') && (value == null || value.trim().isEmpty)
-                ? 'សូមបំពេញព័ត៌មាននេះ'
-                : null,
+            ? 'សូមបំពេញព័ត៌មាននេះ'
+            : null,
         decoration: InputDecoration(
           labelText: label,
           filled: true,
@@ -395,16 +468,18 @@ class _VetFormState extends State<_VetForm> {
     ValueChanged<String?> onChanged, {
     Map<String, String>? labels,
   }) {
+    // Patient data can contain duplicate IDs, and an edited vaccine may
+    // reference an owner or animal that has since been removed. Dropdown
+    // values must be unique and the selected value must still be available.
+    final uniqueValues = values.toSet().toList();
+    final selectedValue = uniqueValues.contains(value) ? value : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        initialValue: value.isEmpty ? null : value,
-        items: values
+        initialValue: selectedValue,
+        items: uniqueValues
             .map(
-              (v) => DropdownMenuItem(
-                value: v,
-                child: Text(labels?[v] ?? v),
-              ),
+              (v) => DropdownMenuItem(value: v, child: Text(labels?[v] ?? v)),
             )
             .toList(),
         onChanged: onChanged,
@@ -448,14 +523,37 @@ class _VetFormState extends State<_VetForm> {
   }
 
   Widget _imageField() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton.icon(
-        onPressed: _pickImage,
-        icon: const Icon(Icons.add_a_photo_outlined),
-        label: Text(
-          _image.isEmpty ? 'បញ្ចូលរូបភាព' : 'រូបភាពត្រូវបានជ្រើសរើស ✓',
-        ),
+    Widget? preview;
+    if (_image.isNotEmpty) {
+      try {
+        final bytes = base64Decode(
+          _image.contains(',') ? _image.split(',').last : _image,
+        );
+        preview = ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(bytes, width: 64, height: 64, fit: BoxFit.cover),
+        );
+      } catch (_) {
+        preview = const Icon(Icons.broken_image_outlined, size: 48);
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          if (preview != null) ...[preview, const SizedBox(width: 10)],
+          OutlinedButton.icon(
+            onPressed: _pickImage,
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: Text(_image.isEmpty ? 'បញ្ចូលរូបភាព' : 'ប្តូររូបភាព'),
+          ),
+          if (_image.isNotEmpty)
+            IconButton(
+              tooltip: 'លុបរូបភាព',
+              onPressed: () => setState(() => _image = ''),
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+            ),
+        ],
       ),
     );
   }

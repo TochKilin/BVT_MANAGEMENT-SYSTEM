@@ -233,7 +233,7 @@ class _SalesPosScreenState extends State<SalesPosScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5EEFF)),
+        border: Border.all(color: const Color.fromARGB(255, 158, 158, 159)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -241,7 +241,7 @@ class _SalesPosScreenState extends State<SalesPosScreen> {
           const Icon(
             Icons.inventory_2_outlined,
             size: 39,
-            color: Color(0xFF17213D),
+            color: Color.fromARGB(255, 175, 175, 175),
           ),
           const SizedBox(width: 13),
           Expanded(

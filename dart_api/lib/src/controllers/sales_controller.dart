@@ -85,6 +85,8 @@ class SalesController {
       final sale = <String, dynamic>{
         'sale_number': 'SO-${DateTime.now().millisecondsSinceEpoch}',
         'items': prepared,
+        'payment_method': body['payment_method']?.toString() ?? 'Cash',
+        'amount_received': (body['amount_received'] as num?)?.toDouble() ?? total,
         'subtotal': total,
         'discount': 0,
         'tax': 0,

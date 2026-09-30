@@ -3,6 +3,7 @@ import 'package:bvt_management/screens/home/Home_screen.dart';
 import 'package:bvt_management/services/medicine_api.dart';
 import 'package:bvt_management/screens/medicines/medicine_extra_screens.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/supplyer.dart';
 import '../../services/vet_api.dart' show ApiException;
@@ -577,6 +578,7 @@ class _MedicineFormState extends State<_MedicineForm> {
       _quantity,
       _purchasePrice;
   String? _supplierId;
+  String _image = '';
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -608,6 +610,7 @@ class _MedicineFormState extends State<_MedicineForm> {
     _quantity = TextEditingController(text: _isEdit ? '' : '0');
     _purchasePrice = TextEditingController(text: '0');
     _supplierId = _isEdit ? MedicineApi.latestSupplierId(m) : null;
+    _image = m['image']?.toString() ?? '';
   }
 
   @override
@@ -645,6 +648,7 @@ class _MedicineFormState extends State<_MedicineForm> {
           'dosage_form': _dosageForm.text.trim(),
           'description': _description.text.trim(),
           'selling_price': double.tryParse(_sellingPrice.text) ?? 0,
+          'image': _image,
           'batches': widget.existing!['batches'],
         });
       } else {
@@ -658,6 +662,7 @@ class _MedicineFormState extends State<_MedicineForm> {
           dosageForm: _dosageForm.text.trim(),
           description: _description.text.trim(),
           sellingPrice: double.tryParse(_sellingPrice.text) ?? 0,
+          image: _image,
           initialQuantity: int.tryParse(_quantity.text) ?? 0,
           purchasePrice: double.tryParse(_purchasePrice.text) ?? 0,
           supplierId: _supplierId,
@@ -671,6 +676,62 @@ class _MedicineFormState extends State<_MedicineForm> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _pickImage() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 65,
+      maxWidth: 1000,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() => _image = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+  }
+
+  Widget _imagePicker() {
+    Widget preview;
+    if (_image.isEmpty) {
+      preview = const Icon(Icons.medication_outlined, size: 34, color: Color(0xFF0E6B5C));
+    } else {
+      try {
+        preview = Image.memory(
+          base64Decode(_image.contains(',') ? _image.split(',').last : _image),
+          width: 76,
+          height: 76,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, size: 34, color: Color(0xFF0E6B5C)),
+        );
+      } catch (_) {
+        preview = const Icon(Icons.broken_image_outlined, size: 34, color: Color(0xFF0E6B5C));
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Container(width: 76, height: 76, color: const Color(0xFFE0F2EF), child: Center(child: preview)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _saving ? null : _pickImage,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(_image.isEmpty ? 'ជ្រើសរូបថ្នាំ' : 'ប្តូររូបថ្នាំ'),
+            ),
+          ),
+          if (_image.isNotEmpty)
+            IconButton(
+              tooltip: 'លុបរូប',
+              onPressed: _saving ? null : () => setState(() => _image = ''),
+              icon: const Icon(Icons.close_rounded),
+            ),
+        ],
+      ),
+    );
   }
 
   void _snack(String text) =>
@@ -767,6 +828,7 @@ class _MedicineFormState extends State<_MedicineForm> {
                             ),
                           ),
                         ),
+                      _imagePicker(),
                     ],
                   ),
                 ),

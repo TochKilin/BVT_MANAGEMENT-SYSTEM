@@ -3,6 +3,39 @@ import '../../services/medicine_api.dart';
 
 const _notificationGreen = Color(0xFF008575);
 
+int countMedicineNotifications(List<Map<String, dynamic>> medicines) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final cutoff = today.add(const Duration(days: 30));
+  var count = 0;
+
+  for (final medicine in medicines) {
+    final batches = (medicine['batches'] as List? ?? const []).whereType<Map>();
+    final quantity = batches.fold<int>(
+      0,
+      (sum, batch) => sum + ((batch['quantity'] as num? ?? 0).toInt()),
+    );
+    if (quantity <= 10) count++;
+
+    var hasExpiredBatch = false;
+    var hasExpiringBatch = false;
+    for (final batch in batches) {
+      final batchQuantity = (batch['quantity'] as num? ?? 0).toInt();
+      final expiry = DateTime.tryParse(batch['expiry_date']?.toString() ?? '');
+      if (expiry == null || batchQuantity <= 0) continue;
+      final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
+      if (expiryDay.isBefore(today)) {
+        hasExpiredBatch = true;
+      } else if (!expiryDay.isAfter(cutoff)) {
+        hasExpiringBatch = true;
+      }
+    }
+    if (hasExpiredBatch) count++;
+    if (hasExpiringBatch) count++;
+  }
+  return count;
+}
+
 class NotificationScreen extends StatefulWidget {
   final VoidCallback? onOpenMedicines;
 

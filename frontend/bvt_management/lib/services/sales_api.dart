@@ -6,11 +6,17 @@ import 'vet_api.dart';
 class SalesApi {
   SalesApi._();
 
-  static Future<Map<String, dynamic>> checkout(List<CartItem> items) async {
+  static Future<Map<String, dynamic>> checkout(
+    List<CartItem> items, {
+    required String paymentMethod,
+    required double amountReceived,
+  }) async {
     final response = await http.post(
       Uri.parse('${VetApi.baseUrl}/api/v1/sales'),
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({
+        'payment_method': paymentMethod,
+        'amount_received': amountReceived,
         'items': items
             .map(
               (item) => {

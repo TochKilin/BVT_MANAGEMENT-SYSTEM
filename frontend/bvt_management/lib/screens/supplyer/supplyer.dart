@@ -193,7 +193,7 @@ class _SupplierScreenState extends State<SupplierScreen> {
           ),
         ),
         Material(
-          color: const Color(0xFFFFFFFF),
+          color: const Color(0xFF0E6B5C),
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: _openAdd,
@@ -252,7 +252,7 @@ class _SupplierScreenState extends State<SupplierScreen> {
             ),
             child: const Icon(
               Icons.local_shipping_outlined,
-              color: Color(0xFF0E6B5C),
+              color: Color(0xFFFFFFFF),
               size: 32,
             ),
           ),
@@ -323,7 +323,7 @@ class _SupplierCard extends StatelessWidget {
                 child: Text(
                   initials,
                   style: const TextStyle(
-                    color: Color(0xFF0E6B5C),
+                    color: Color(0xFFFFFFFF),
                     fontWeight: FontWeight.w800,
                   ),
                 ),

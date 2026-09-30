@@ -82,6 +82,7 @@ class _DashboardState extends State<_Dashboard> {
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _topSuppliers = [];
   Map<String, dynamic>? _user;
+  int _notificationCount = 0;
 
   final _searchController = TextEditingController();
   List<_SearchResult> _searchResults = [];
@@ -118,6 +119,7 @@ class _DashboardState extends State<_Dashboard> {
         VetApi.getDashboardSummary(),
         VetApi.getAppointments(),
         SupplierApi.getSuppliers(),
+        VetApi.getMedicines(),
       ]);
 
       if (mounted) {
@@ -127,6 +129,9 @@ class _DashboardState extends State<_Dashboard> {
           _topSuppliers = (result[2] as List<Map<String, dynamic>>)
               .take(3)
               .toList();
+          _notificationCount = countMedicineNotifications(
+            result[3] as List<Map<String, dynamic>>,
+          );
         });
       }
     } catch (_) {
@@ -276,35 +281,45 @@ class _DashboardState extends State<_Dashboard> {
                   ],
                 ),
               ),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: _card(16),
-                    child: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: Color(0xFF0A4F44),
-                    ),
-                  ),
-                  const Positioned(
-                    top: -4,
-                    right: -4,
-                    child: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: Color(0xFFE05C86),
-                      child: Text(
-                        '3',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => widget.onNavigate(3),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: _card(16),
+                        child: const Icon(
+                          Icons.notifications_none_rounded,
+                          color: Color(0xFF0A4F44),
                         ),
                       ),
-                    ),
+                      if (_notificationCount > 0)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: CircleAvatar(
+                            radius: 12,
+                            backgroundColor: const Color(0xFFE05C86),
+                            child: Text(
+                              _notificationCount > 99
+                                  ? '99+'
+                                  : '$_notificationCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -349,7 +364,7 @@ class _DashboardState extends State<_Dashboard> {
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'រកមិនឃើញទិន្នន័យទេ',
-                  style: TextStyle(color: Color(0xFFF59E0B)),
+                  style: TextStyle(color: Colors.black),
                 ),
               )
             else
@@ -450,8 +465,8 @@ class _DashboardState extends State<_Dashboard> {
                   name: s['name']?.toString() ?? '-',
                   detail: s['phone']?.toString() ?? '',
                   icon: Icons.local_shipping_outlined,
-                  tint: const Color(0xFFE0F2EF),
-                  accent: const Color(0xFF0E6B5C),
+                  tint: const Color(0xFF0E6B5C),
+                  accent: const Color(0xFFFFFFFF),
                   onTap: () => widget.onNavigate(7),
                 ),
               ),
@@ -474,8 +489,8 @@ class _DashboardState extends State<_Dashboard> {
                       name: item['reason']?.toString() ?? 'ការណាត់ជួប',
                       detail: item['scheduled_at']?.toString() ?? '-',
                       icon: Icons.calendar_month_rounded,
-                      tint: const Color(0xFFD9D9D9),
-                      accent: const Color(0xFFF59E0B),
+                      tint: const Color(0xFFF59E0B),
+                      accent: const Color(0xFFFFFFFF),
                     ),
                   ),
                 ),
@@ -556,10 +571,10 @@ class _Stat extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2EF),
+                  color: const Color(0xFF0E6B5C),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: const Color(0xFF0A4F44), size: 20),
+                child: Icon(icon, color: const Color(0xFFFFFFFF), size: 20),
               ),
               const Spacer(),
               Text(number, style: _title(25)),
@@ -588,6 +603,15 @@ class _RecordsPage extends StatefulWidget {
 class _RecordsPageState extends State<_RecordsPage> {
   List<Map<String, dynamic>> _records = [];
   bool _loading = false;
+  final _appointmentSearch = TextEditingController();
+  String _appointmentFilter = 'all';
+  bool _newestFirst = true;
+
+  @override
+  void dispose() {
+    _appointmentSearch.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -608,6 +632,30 @@ class _RecordsPageState extends State<_RecordsPage> {
     setState(() => _loading = true);
     try {
       _records = await loader();
+      if (widget.kind == _PageKind.appointments && _records.isNotEmpty) {
+        final owners = await VetApi.getPatients();
+        final ownersById = {
+          for (final owner in owners) owner['_id']?.toString(): owner,
+        };
+        _records = _records.map((appointment) {
+          final owner = ownersById[appointment['owner_id']?.toString()];
+          final animals = (owner?['animals'] as List? ?? const [])
+              .cast<Map>()
+              .map((animal) => Map<String, dynamic>.from(animal));
+          Map<String, dynamic>? matchedAnimal;
+          for (final animal in animals) {
+            if (animal['_id']?.toString() == appointment['animal_id']?.toString()) {
+              matchedAnimal = animal;
+              break;
+            }
+          }
+          return {
+            ...appointment,
+            'owner_name': owner?['name']?.toString() ?? '',
+            'animal_name': matchedAnimal?['name']?.toString() ?? '',
+          };
+        }).toList();
+      }
     } catch (_) {
       _records = [];
     } finally {
@@ -663,7 +711,7 @@ class _RecordsPageState extends State<_RecordsPage> {
     final data = switch (kind) {
       _PageKind.patients => (
         'អ្នកជំងឺ',
-        'បញ្ជីពី MongoDB',
+        'ទិន្ន័យទាំងអស់',
         'បន្ថែមអ្នកជំងឺ',
         Icons.add_rounded,
         const <Widget>[],
@@ -685,8 +733,8 @@ class _RecordsPageState extends State<_RecordsPage> {
             name: 'ប្រវត្តិរូប',
             detail: 'មើល និងកែប្រែព័ត៌មានផ្ទាល់ខ្លួន',
             icon: Icons.person_outline_rounded,
-            tint: const Color(0xFFE0F2EF),
-            accent: const Color(0xFF0E6B5C),
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
@@ -695,40 +743,40 @@ class _RecordsPageState extends State<_RecordsPage> {
             name: 'វ៉ាក់សាំង',
             detail: 'កាលវិភាគ dose និងការរំលឹក',
             icon: Icons.vaccines_outlined,
-            tint: const Color(0xFFE0F2EF),
-            accent: const Color(0xFF0E6B5C),
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
             onTap: () => widget.onNavigate?.call(5),
           ),
           _Row(
             name: 'ការណាត់ជួប',
             detail: 'គ្រប់គ្រងពេលជួបពេទ្យ',
             icon: Icons.calendar_month_rounded,
-            tint: const Color(0xFFFFF4D6),
-            accent: const Color(0xFFF59E0B),
+            tint: const Color(0xFFF59E0B),
+            accent: const Color(0xFFFFFFFF),
             onTap: () => widget.onNavigate?.call(6),
           ),
           _Row(
             name: 'អ្នកផ្គត់ផ្គង់',
             detail: 'គ្រប់គ្រងអ្នកផ្គត់ផ្គង់ និងការទិញ',
             icon: Icons.local_shipping_outlined,
-            tint: const Color(0xFFE0F2EF),
-            accent: const Color(0xFF0E6B5C),
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
             onTap: () => widget.onNavigate?.call(7),
           ),
           _Row(
             name: 'ការបញ្ជាទិញ',
             detail: 'បញ្ជី purchase orders ដែលរក្សាទុកក្នុង database',
             icon: Icons.shopping_cart_outlined,
-            tint: const Color(0xFFE0F2EF),
-            accent: const Color(0xFF0E6B5C),
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
             onTap: () => widget.onNavigate?.call(8),
           ),
           _Row(
             name: 'ការលក់ និងវិក្កយបត្រ',
             detail: 'មើលប្រតិបត្តិការលក់ប្រចាំថ្ងៃ',
             icon: Icons.receipt_long_outlined,
-            tint: Color(0xFFFFF4D6),
-            accent: Color(0xFFF59E0B),
+            tint: Color(0xFFF59E0B),
+            accent: Color(0xFFFFFFFF),
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const SalesPosScreen())),
@@ -737,30 +785,30 @@ class _RecordsPageState extends State<_RecordsPage> {
             name: 'របាយការណ៍',
             detail: 'សង្ខេបប្រាក់ចំណូល និងស្តុក',
             icon: Icons.bar_chart_rounded,
-            tint: Color(0xFFE0F2EF),
-            accent: Color(0xFF0E6B5C),
+            tint: Color(0xFF0E6B5C),
+            accent: Color(0xFFFFFFFF),
             onTap: () => widget.onNavigate?.call(12),
           ),
           _Row(
             name: 'ចាកចេញពីប្រព័ន្ធ',
             detail: 'Logout ចេញពីគណនីបច្ចុប្បន្ន',
             icon: Icons.logout_rounded,
-            tint: const Color(0xFFFDE3EC),
-            accent: const Color(0xFFE05C86),
+            tint: const Color(0xFFE05C86),
+            accent: const Color(0xFFFFFFFF),
             onTap: _logout,
           ),
         ],
       ),
       _PageKind.vaccinations => (
         'វ៉ាក់សាំង',
-        'បញ្ជីពី MongoDB',
+        'ទិន្ន័យទាំងអស់',
         'កត់ត្រាវ៉ាក់សាំង',
         Icons.add_rounded,
         const <Widget>[],
       ),
       _PageKind.appointments => (
         'ការណាត់ជួប',
-        'បញ្ជីពី MongoDB',
+        'ទិន្ន័យទាំងអស់',
         'កំណត់ការណាត់ជួប',
         Icons.add_rounded,
         const <Widget>[],
@@ -806,6 +854,61 @@ class _RecordsPageState extends State<_RecordsPage> {
             ),
           ),
           const SizedBox(height: 18),
+          if (kind == _PageKind.appointments) ...[
+            TextField(
+              controller: _appointmentSearch,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'ស្វែងរកការណាត់ជួប...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _appointmentSearch.text.isEmpty ? null : IconButton(
+                  onPressed: () { _appointmentSearch.clear(); setState(() {}); },
+                  icon: const Icon(Icons.close_rounded),
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF7FAF9),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF0E6B5C),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: DropdownButtonFormField<String>(
+                value: _appointmentFilter,
+                decoration: InputDecoration(labelText: 'តម្រង', border: OutlineInputBorder(borderRadius: BorderRadius.circular(13))),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('ទាំងអស់')),
+                  DropdownMenuItem(value: 'upcoming', child: Text('Upcoming')),
+                  DropdownMenuItem(value: 'past', child: Text('Past')),
+                ],
+                onChanged: (value) => setState(() => _appointmentFilter = value ?? 'all'),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: DropdownButtonFormField<bool>(
+                value: _newestFirst,
+                decoration: InputDecoration(labelText: 'តម្រៀបតាមថ្ងៃ', border: OutlineInputBorder(borderRadius: BorderRadius.circular(13))),
+                items: const [
+                  DropdownMenuItem(value: true, child: Text('ថ្មីទៅចាស់')),
+                  DropdownMenuItem(value: false, child: Text('ចាស់ទៅថ្មី')),
+                ],
+                onChanged: (value) => setState(() => _newestFirst = value ?? true),
+              )),
+            ]),
+            const SizedBox(height: 16),
+          ],
           if (_loading)
             const Center(
               child: Padding(
@@ -848,20 +951,187 @@ class _RecordsPageState extends State<_RecordsPage> {
             name: animal['name']?.toString() ?? 'សត្វ',
             detail: '${animal['species'] ?? ''} · ${owner['name'] ?? ''}',
             icon: Icons.pets_rounded,
-            tint: const Color(0xFFE0F2EF),
+            tint: const Color.fromARGB(255, 4, 29, 25),
             accent: const Color(0xFF0E6B5C),
             image: animal['photo']?.toString() ?? '',
+            trailing: PopupMenuButton<String>(
+              onSelected: (action) async {
+                if (action == 'edit') {
+                  final saved = await showVetForm(
+                    context,
+                    VetFormType.patient,
+                    owner: owner,
+                    animal: Map<String, dynamic>.from(animal),
+                  );
+                  if (saved == true && mounted) await _load();
+                } else if (action == 'delete') {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('លុបអ្នកជំងឺ?'),
+                      content: Text(
+                        'តើអ្នកចង់លុប ${animal['name'] ?? 'សត្វនេះ'} មែនទេ?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('បោះបង់'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text(
+                            'លុប',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    try {
+                      await VetApi.deletePatient(
+                        ownerId: owner['_id'].toString(),
+                        animalId: animal['_id'].toString(),
+                      );
+                      if (mounted) await _load();
+                    } on ApiException catch (error) {
+                      if (mounted)
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(error.message)));
+                    }
+                  }
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'edit', child: Text('កែប្រែ')),
+                PopupMenuItem(value: 'delete', child: Text('លុប')),
+              ],
+            ),
           ),
         );
       }).toList();
     }
 
-    return _records.map((item) {
+    var displayedRecords = _records;
+    if (kind == _PageKind.appointments) {
+      final query = _appointmentSearch.text.trim().toLowerCase();
+      final now = DateTime.now();
+      displayedRecords = _records.where((item) {
+        final scheduled = DateTime.tryParse(item['scheduled_at']?.toString() ?? '');
+        if (scheduled == null) return false;
+        if (_appointmentFilter == 'upcoming' && scheduled.isBefore(now)) return false;
+        if (_appointmentFilter == 'past' && !scheduled.isBefore(now)) return false;
+        if (query.isEmpty) return true;
+        final searchable = '${item['reason'] ?? ''} ${item['animal_name'] ?? ''} ${item['owner_name'] ?? ''} ${item['scheduled_at'] ?? ''}'.toLowerCase();
+        return searchable.contains(query);
+      }).toList();
+      displayedRecords.sort((a, b) {
+        final aDate = DateTime.tryParse(a['scheduled_at']?.toString() ?? '') ?? DateTime(1970);
+        final bDate = DateTime.tryParse(b['scheduled_at']?.toString() ?? '') ?? DateTime(1970);
+        return _newestFirst ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
+      });
+      if (displayedRecords.isEmpty) {
+        return const [Text('រកមិនឃើញការណាត់ជួបដែលត្រូវនឹងលក្ខខណ្ឌទេ', style: TextStyle(color: Colors.black54))];
+      }
+    }
+
+    return displayedRecords.map((item) {
       final isVaccine = kind == _PageKind.vaccinations;
       final name = isVaccine ? item['vaccine_name'] : item['reason'];
       final detail = isVaccine
           ? 'Dose បន្ទាប់: ${item['next_due_at'] ?? '-'}'
           : 'កាលវិភាគ: ${item['scheduled_at'] ?? '-'}';
+
+      final actions = isVaccine
+          ? PopupMenuButton<String>(
+              onSelected: (action) async {
+                if (action == 'edit') {
+                  final saved = await showVetForm(
+                    context,
+                    VetFormType.vaccination,
+                    record: item,
+                  );
+                  if (saved == true && mounted) await _load();
+                } else if (action == 'delete') {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('លុបកំណត់ត្រាវ៉ាក់សាំង?'),
+                      content: Text(
+                        'តើអ្នកចង់លុប ${item['vaccine_name'] ?? 'វ៉ាក់សាំងនេះ'} មែនទេ?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('បោះបង់'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text(
+                            'លុប',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    try {
+                      await VetApi.deleteVaccination(item['_id'].toString());
+                      if (mounted) await _load();
+                    } on ApiException catch (error) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(error.message)));
+                      }
+                    }
+                  }
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'edit', child: Text('កែប្រែ')),
+                PopupMenuItem(value: 'delete', child: Text('លុប')),
+              ],
+            )
+          : null;
+
+      final scheduled = DateTime.tryParse(item['scheduled_at']?.toString() ?? '');
+      final appointmentBadge = !isVaccine && scheduled != null
+          ? (scheduled.isBefore(DateTime.now()) ? 'Past' : 'Upcoming')
+          : null;
+
+      Future<void> showAppointmentDetails() async {
+        if (isVaccine) return;
+        final action = await showDialog<String>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(item['reason']?.toString() ?? 'ការណាត់ជួប'),
+            content: Text('កាលវិភាគ: ${item['scheduled_at'] ?? '-'}\nស្ថានភាព: ${appointmentBadge ?? '-'}\nម្ចាស់សត្វ: ${item['owner_name']?.toString().isNotEmpty == true ? item['owner_name'] : '-'}\nសត្វ: ${item['animal_name']?.toString().isNotEmpty == true ? item['animal_name'] : '-'}'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('បិទ')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, 'edit'), child: const Text('កែប្រែ')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, 'delete'), child: const Text('លុប', style: TextStyle(color: Colors.red))),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (action == 'edit') {
+          final saved = await showVetForm(context, VetFormType.appointment, record: item);
+          if (saved == true && mounted) await _load();
+        } else if (action == 'delete') {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+            title: const Text('លុបការណាត់ជួប?'),
+            content: Text('តើអ្នកចង់លុប ${item['reason'] ?? 'ការណាត់ជួបនេះ'} មែនទេ?'),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('បោះបង់')), TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('លុប', style: TextStyle(color: Colors.red)))],
+          ));
+          if (confirmed == true) {
+            try { await VetApi.deleteAppointment(item['_id'].toString()); if (mounted) await _load(); }
+            on ApiException catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message))); }
+          }
+        }
+      }
 
       return _Row(
         name: name?.toString() ?? '-',
@@ -869,9 +1139,16 @@ class _RecordsPageState extends State<_RecordsPage> {
         icon: isVaccine
             ? Icons.vaccines_outlined
             : Icons.calendar_month_rounded,
-        tint: const Color(0xFFE0F2EF),
-        accent: const Color(0xFF0E6B5C),
+        tint: isVaccine
+            ? const Color(0xFFE0F2EF)
+            : const Color(0xFFF59E0B),
+        accent: isVaccine
+            ? const Color(0xFF0E6B5C)
+            : const Color(0xFFFFFFFF),
         image: isVaccine ? item['image']?.toString() ?? '' : '',
+        trailing: actions,
+        badge: appointmentBadge,
+        onTap: isVaccine ? null : showAppointmentDetails,
       );
     }).toList();
   }
@@ -886,6 +1163,7 @@ class _Row extends StatelessWidget {
   final VoidCallback? onTap;
   final String image;
   final String? badge;
+  final Widget? trailing;
 
   const _Row({
     required this.name,
@@ -895,7 +1173,9 @@ class _Row extends StatelessWidget {
     required this.accent,
     this.onTap,
     this.image = '',
-  }) : badge = null;
+    this.trailing,
+    this.badge,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -955,7 +1235,11 @@ class _Row extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF4A5568)),
+              trailing ??
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF4A5568),
+                  ),
             ],
           ),
         ),
@@ -969,7 +1253,7 @@ class _Row extends StatelessWidget {
         width: 45,
         height: 45,
         decoration: BoxDecoration(
-          color: const Color(0xFFE0F2EF),
+          color: tint,
           borderRadius: BorderRadius.circular(13),
         ),
         child: Icon(icon, color: accent),

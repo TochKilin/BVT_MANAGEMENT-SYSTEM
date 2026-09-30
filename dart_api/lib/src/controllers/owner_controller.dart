@@ -7,6 +7,12 @@ import '../utils/json_utils.dart';
 
 class OwnerController {
 
+  String _idHex(dynamic value) {
+    if (value is ObjectId) return value.oid;
+    final match = RegExp(r'[a-fA-F0-9]{24}').firstMatch(value?.toString() ?? '');
+    return match?.group(0)?.toLowerCase() ?? '';
+  }
+
   Future<Response> getAll(Request request) async {
     try {
       final collection = await DatabaseService.getCollection('owners');
@@ -123,6 +129,48 @@ class OwnerController {
         body: jsonEncode({'error': 'Error deleting owner: $e'}),
         headers: {'content-type': 'application/json'},
       );
+    }
+  }
+
+  Future<Response> updateAnimal(Request request, String ownerId, String animalId) async {
+    try {
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final animal = Map<String, dynamic>.from(body['animal'] as Map);
+      animal['_id'] = ObjectId.fromHexString(animalId);
+      final collection = await DatabaseService.getCollection('owners');
+      final ownerObjectId = ObjectId.fromHexString(ownerId);
+      final existing = await collection.findOne(where.id(ownerObjectId));
+      if (existing == null) {
+        return Response.notFound(jsonEncode({'error': 'Owner not found'}), headers: {'content-type': 'application/json'});
+      }
+      final animals = (existing['animals'] as List? ?? []).map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      final targetId = _idHex(animal['_id']);
+      final index = animals.indexWhere((item) => _idHex(item['_id']) == targetId);
+      if (index < 0) {
+        return Response.notFound(jsonEncode({'error': 'Patient not found'}), headers: {'content-type': 'application/json'});
+      }
+      animals[index] = animal;
+      await collection.updateOne(where.id(ownerObjectId), modify.set('name', body['name']).set('phone', body['phone']).set('animals', animals));
+      return Response.ok(jsonEncode({'message': 'Patient updated successfully'}), headers: {'content-type': 'application/json'});
+    } catch (e) {
+      return Response.internalServerError(body: jsonEncode({'error': 'Error updating patient: $e'}), headers: {'content-type': 'application/json'});
+    }
+  }
+
+  Future<Response> deleteAnimal(Request request, String ownerId, String animalId) async {
+    try {
+      final collection = await DatabaseService.getCollection('owners');
+      final ownerObjectId = ObjectId.fromHexString(ownerId);
+      final existing = await collection.findOne(where.id(ownerObjectId));
+      if (existing == null) {
+        return Response.notFound(jsonEncode({'error': 'Owner not found'}), headers: {'content-type': 'application/json'});
+      }
+      final targetId = ObjectId.fromHexString(animalId);
+      final animals = (existing['animals'] as List? ?? []).where((item) => _idHex((item as Map)['_id']) != targetId.oid).toList();
+      await collection.updateOne(where.id(ownerObjectId), modify.set('animals', animals));
+      return Response.ok(jsonEncode({'message': 'Patient deleted successfully'}), headers: {'content-type': 'application/json'});
+    } catch (e) {
+      return Response.internalServerError(body: jsonEncode({'error': 'Error deleting patient: $e'}), headers: {'content-type': 'application/json'});
     }
   }
 }

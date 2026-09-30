@@ -55,6 +55,8 @@ class AppRouter {
     router.post('/api/v1/owners', _ownerController.create);
     router.put('/api/v1/owners/<id>', _ownerController.update);
     router.delete('/api/v1/owners/<id>', _ownerController.delete);
+    router.put('/api/v1/owners/<ownerId>/animals/<animalId>', _ownerController.updateAnimal);
+    router.delete('/api/v1/owners/<ownerId>/animals/<animalId>', _ownerController.deleteAnimal);
     //Medicine
     router.get('/api/v1/medicines', _medicineController.getAll);
     router.get('/api/v1/medicine-categories', _medicineCategoryController.getAll);

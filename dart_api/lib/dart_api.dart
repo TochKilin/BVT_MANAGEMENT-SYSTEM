@@ -14,7 +14,7 @@ class DatabaseService {
   }
 
   static Future<void> connect() async {
-    await db;
+    await db;   
   }
 
   // Future<DbCollection> Return Collection
