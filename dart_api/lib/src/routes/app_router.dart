@@ -11,6 +11,7 @@ import 'package:dart_api/src/controllers/sales_controller.dart';
 import 'package:dart_api/src/controllers/prescription_controller.dart';
 import 'package:dart_api/src/controllers/medicine_category_controller.dart';
 import 'package:dart_api/src/controllers/report_controller.dart';
+import 'package:dart_api/src/controllers/unit_controller.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 
@@ -30,6 +31,7 @@ class AppRouter {
   final MedicineCategoryController _medicineCategoryController =
       MedicineCategoryController();
   final ReportController _reportController = ReportController();
+  final UnitController _unitController = UnitController();
 
   Router get router {
     final router = Router();
@@ -61,6 +63,9 @@ class AppRouter {
     router.get('/api/v1/medicines', _medicineController.getAll);
     router.get('/api/v1/medicine-categories', _medicineCategoryController.getAll);
     router.post('/api/v1/medicine-categories', _medicineCategoryController.create);
+    router.get('/api/v1/units', _unitController.getAll);
+    router.post('/api/v1/units', _unitController.create);
+    router.delete('/api/v1/units/<id>', _unitController.delete);
     router.post('/api/v1/medicines', _medicineController.create);
     router.delete('/api/v1/medicines/<id>', _medicineController.delete);
     // Records
@@ -91,6 +96,7 @@ class AppRouter {
     // Purchase
     router.get('/api/v1/purchases', _purchaseController.getAll);
     router.post('/api/v1/purchases', _purchaseController.create);
+    router.put('/api/v1/purchases/<id>/items/<index>/image', _purchaseController.updateItemImage);
     router.post('/api/v1/sales', _salesController.create);
     router.get('/api/v1/prescriptions', _prescriptionController.getAll);
     router.post('/api/v1/prescriptions', _prescriptionController.create);

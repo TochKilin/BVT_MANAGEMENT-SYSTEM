@@ -5,6 +5,7 @@ class VaccinationModel {
   final String ownerId;
   final String animalId;
   final String vaccineName;
+  final String unit;
   final String manufacturer;
   final String batchNumber;
   final DateTime administeredAt;
@@ -18,6 +19,7 @@ class VaccinationModel {
     required this.ownerId,
     required this.animalId,
     required this.vaccineName,
+    this.unit = '',
     this.manufacturer = '',
     this.batchNumber = '',
     DateTime? administeredAt,
@@ -32,6 +34,7 @@ class VaccinationModel {
         ownerId: map['owner_id']?.toString() ?? '',
         animalId: map['animal_id']?.toString() ?? '',
         vaccineName: map['vaccine_name']?.toString() ?? '',
+        unit: map['unit']?.toString() ?? '',
         manufacturer: map['manufacturer']?.toString() ?? '',
         batchNumber: map['batch_number']?.toString() ?? '',
         administeredAt: _date(map['administered_at']) ?? DateTime.now(),
@@ -46,6 +49,7 @@ class VaccinationModel {
         'owner_id': ownerId,
         'animal_id': animalId,
         'vaccine_name': vaccineName,
+        'unit': unit,
         'manufacturer': manufacturer,
         'batch_number': batchNumber,
         'administered_at': administeredAt.toIso8601String(),

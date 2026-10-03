@@ -34,6 +34,7 @@ class PrescriptionController {
         'animal_id': ObjectId.fromHexString(body['animal_id'].toString()),
         'medicine_id': ObjectId.fromHexString(body['medicine_id'].toString()),
         'medicine_name': body['medicine_name'].toString(),
+        'unit': body['unit']?.toString() ?? '',
         'dosage': body['dosage'].toString(),
         'frequency': body['frequency'].toString(),
         'duration': body['duration'].toString(),

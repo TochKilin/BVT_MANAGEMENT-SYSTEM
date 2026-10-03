@@ -46,7 +46,10 @@ class PurchaseController {
           final medicines = await DatabaseService.getCollection('medicines');
           final medicine = await medicines.findOne(where.id(medicineId));
           if (medicine == null) return Response.badRequest(body: jsonEncode({'error': 'Medicine not found'}), headers: _headers);
-          items.add({'product_type': productType, 'medicine_id': medicineId, 'medicine_name': medicine['name'], 'product_name': medicine['name'], 'quantity': qty, 'purchase_price': price});
+          final unit = input['unit']?.toString().trim().isNotEmpty == true
+              ? input['unit'].toString().trim()
+              : medicine['unit']?.toString() ?? '';
+          items.add({'product_type': productType, 'medicine_id': medicineId, 'medicine_name': medicine['name'], 'product_name': medicine['name'], 'quantity': qty, 'purchase_price': price, 'unit': unit});
           final batches = (medicine['batches'] as List? ?? const []).toList();
           batches.add({
             'batch_number': 'PO-${DateTime.now().millisecondsSinceEpoch}',
@@ -54,17 +57,20 @@ class PurchaseController {
             'expiry_date': DateTime.now().add(const Duration(days: 365)).toIso8601String(),
             'received_at': DateTime.now().toIso8601String(),
             'quantity': qty,
+            'unit': unit,
             'purchase_price': price,
             'selling_price': medicine['selling_price'] ?? 0,
             'supplier_id': supplierId,
           });
           await medicines.updateOne(where.id(medicineId), {
-            r'$set': {'batches': batches, 'updated_at': DateTime.now().toIso8601String()},
+            r'$set': {'batches': batches, 'unit': unit, 'updated_at': DateTime.now().toIso8601String()},
           });
         } else {
           final productName = input['product_name']?.toString().trim() ?? '';
           if (productName.isEmpty) return Response.badRequest(body: jsonEncode({'error': 'Vaccine name is required'}), headers: _headers);
-          items.add({'product_type': productType, 'product_name': productName, 'vaccine_name': productName, 'quantity': qty, 'purchase_price': price});
+          final unit = input['unit']?.toString().trim() ?? '';
+          if (unit.isEmpty) return Response.badRequest(body: jsonEncode({'error': 'Vaccine unit is required'}), headers: _headers);
+          items.add({'product_type': productType, 'product_name': productName, 'vaccine_name': productName, 'quantity': qty, 'purchase_price': price, 'unit': unit, 'image': input['image']?.toString() ?? ''});
         }
         total += qty * price;
       }
@@ -81,6 +87,30 @@ class PurchaseController {
       };
       final result = await collection.insertOne(order);
       return Response(201, body: jsonEncode(jsonSafe(result.document ?? order)), headers: _headers);
+    } catch (error) {
+      return _error(error);
+    }
+  }
+
+  Future<Response> updateItemImage(Request request, String id, String rawIndex) async {
+    try {
+      final purchaseId = _id(id);
+      final index = int.tryParse(rawIndex);
+      if (purchaseId == null || index == null || index < 0) {
+        return Response.badRequest(body: jsonEncode({'error': 'Invalid purchase item'}), headers: _headers);
+      }
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final image = body['image']?.toString() ?? '';
+      final collection = await DatabaseService.getCollection('purchases');
+      final purchase = await collection.findOne(where.id(purchaseId));
+      if (purchase == null) return Response.notFound(jsonEncode({'error': 'Purchase not found'}), headers: _headers);
+      final items = (purchase['items'] as List? ?? const []).map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      if (index >= items.length || items[index]['product_type']?.toString() != 'vaccine') {
+        return Response.badRequest(body: jsonEncode({'error': 'Vaccine item not found'}), headers: _headers);
+      }
+      items[index]['image'] = image;
+      await collection.updateOne(where.id(purchaseId), {'\$set': {'items': items}});
+      return Response.ok(jsonEncode({'success': true}), headers: _headers);
     } catch (error) {
       return _error(error);
     }

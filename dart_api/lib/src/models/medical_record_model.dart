@@ -4,6 +4,7 @@ import 'package:mongo_dart/mongo_dart.dart';
 class PrescriptionItem {
   final ObjectId medicineId;
   final String medicineName;
+  final String unit;
   final String dosage;
   final String frequency;
   final String duration;
@@ -11,6 +12,7 @@ class PrescriptionItem {
   PrescriptionItem({
     required this.medicineId,
     required this.medicineName,
+    this.unit = '',
     required this.dosage,
     required this.frequency,
     required this.duration,
@@ -32,6 +34,7 @@ class PrescriptionItem {
     return PrescriptionItem(
       medicineId: parseObjectId(map['medicine_id']),
       medicineName: map['medicine_name']?.toString() ?? '',
+      unit: map['unit']?.toString() ?? '',
       dosage: map['dosage']?.toString() ?? '',
       frequency: map['frequency']?.toString() ?? '',
       duration: map['duration']?.toString() ?? '',
@@ -42,6 +45,7 @@ class PrescriptionItem {
     return {
       'medicine_id': medicineId.oid,
       'medicine_name': medicineName,
+      'unit': unit,
       'dosage': dosage,
       'frequency': frequency,
       'duration': duration,
