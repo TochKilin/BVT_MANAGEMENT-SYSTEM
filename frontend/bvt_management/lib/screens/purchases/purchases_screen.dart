@@ -46,6 +46,19 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
     final filtered = _orders.where((o) => '${o['order_number']} ${o['supplier_name']}'.toLowerCase().contains(query)).toList();
+    final vaccineItems = _orders
+        .expand((order) => (order['items'] as List? ?? const []).whereType<Map>())
+        .where((item) => item['product_type']?.toString() == 'vaccine')
+        .toList();
+    final vaccineTypes = vaccineItems
+        .map((item) => (item['product_name'] ?? item['vaccine_name'] ?? '').toString().trim().toLowerCase())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .length;
+    final vaccineQuantity = vaccineItems.fold<int>(
+      0,
+      (total, item) => total + ((item['quantity'] as num?)?.toInt() ?? 0),
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -71,9 +84,54 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             ),
           ]),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(children: [
+            Expanded(child: _summaryCard(
+              icon: Icons.category_outlined,
+              label: 'ប្រភេទវ៉ាក់សាំងសរុប',
+              value: '$vaccineTypes',
+            )),
+            const SizedBox(width: 12),
+            Expanded(child: _summaryCard(
+              icon: Icons.vaccines_outlined,
+              label: 'ចំនួនវ៉ាក់សាំងសរុប',
+              value: '$vaccineQuantity',
+            )),
+          ]),
+        ),
         Padding(padding: const EdgeInsets.fromLTRB(24, 18, 24, 20), child: TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'ស្វែងរក...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))))),
         Expanded(child: _loading ? const Center(child: CircularProgressIndicator()) : _error != null ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text('មិនអាចទាញទិន្នន័យបាន\n$_error', textAlign: TextAlign.center), TextButton(onPressed: _load, child: const Text('ព្យាយាមម្ដងទៀត'))])) : filtered.isEmpty ? const Center(child: Text('មិនទាន់មានការបញ្ជាទិញ')) : RefreshIndicator(onRefresh: _load, child: ListView.builder(padding: const EdgeInsets.fromLTRB(20, 0, 20, 80), itemCount: filtered.length, itemBuilder: (_, i) => _orderCard(filtered[i])))),
       ])),
+    );
+  }
+
+  Widget _summaryCard({required IconData icon, required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      constraints: const BoxConstraints(minHeight: 140),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF5F2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A4F44),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: Colors.white, size: 21),
+          ),
+          const SizedBox(height: 12),
+          Text(value, style: const TextStyle(fontSize: 26, height: 1, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFF718096))),
+        ],
+      ),
     );
   }
 
@@ -86,7 +144,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PurchaseDetailScreen(order: order))),
       borderRadius: BorderRadius.circular(18),
       child: Container(margin: const EdgeInsets.only(bottom: 14), padding: const EdgeInsets.all(16), decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE5EEFF)), borderRadius: BorderRadius.circular(18)), child: Row(children: [
-      const Icon(Icons.inventory_2_outlined, size: 40, color: Color(0xFF17213D)), const SizedBox(width: 14),
+      Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A4F44),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(Icons.inventory_2_outlined, size: 30, color: Colors.white),
+      ), const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${order['order_number'] ?? 'PO'} ${order['supplier_name'] ?? ''}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)), const SizedBox(height: 7), Text('$dateText  ·  ${items.length} មុខ') ])),
       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [Text('\$$amount', style: const TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 8), Text(order['status']?.toString() ?? '', style: const TextStyle(color: Color(0xFF008575)))])
     ])),
@@ -159,6 +225,17 @@ class _PurchaseFormState extends State<_PurchaseForm> {
                     )).toList(),
                     onChanged: (value) => setState(() => medicineId = value),
                   ),
+                  if (medicineId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'ខ្នាត៖ ${widget.medicines.firstWhere((medicine) => medicine['_id']?.toString() == medicineId, orElse: () => const {})['unit']?.toString().trim().isNotEmpty == true ? widget.medicines.firstWhere((medicine) => medicine['_id']?.toString() == medicineId, orElse: () => const {})['unit'] : 'មិនបានកំណត់'}',
+                          style: const TextStyle(color: Color(0xFF4A5568)),
+                        ),
+                      ),
+                    ),
                   _field(quantity, 'ចំនួន *', keyboard: TextInputType.number),
                   _field(
                     price,

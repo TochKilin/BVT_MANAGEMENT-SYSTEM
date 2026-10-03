@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/vet_api.dart';
+import '../../services/unit_api.dart';
 
 enum VetFormType { patient, medicine, vaccination, appointment }
 
@@ -56,6 +57,9 @@ class _VetFormState extends State<_VetForm> {
   bool _saving = false;
   bool _loadingPatients = false;
   List<Map<String, dynamic>> _patients = [];
+  List<String> _units = [];
+  String _selectedUnit = '';
+  bool _loadingUnits = false;
 
   bool get _needsPatientPicker =>
       widget.type == VetFormType.vaccination ||
@@ -95,6 +99,10 @@ class _VetFormState extends State<_VetForm> {
       _date = DateTime.tryParse(record['scheduled_at']?.toString() ?? '') ?? _date;
     }
     if (_needsPatientPicker) _loadPatients();
+    if (widget.type == VetFormType.medicine || widget.type == VetFormType.vaccination) {
+      _loadUnits(widget.type == VetFormType.vaccination ? 'vaccine' : 'medicine');
+      _selectedUnit = widget.record?['unit']?.toString() ?? '';
+    }
   }
 
   @override
@@ -122,6 +130,23 @@ class _VetFormState extends State<_VetForm> {
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loadingPatients = false);
+    }
+  }
+
+  Future<void> _loadUnits(String type) async {
+    setState(() => _loadingUnits = true);
+    try {
+      final units = await UnitApi.getUnits();
+      final names = units.where((unit) => unit['type'] == type).map((unit) => unit['name'].toString()).toList();
+      if (mounted) setState(() {
+        _units = names;
+        if (_selectedUnit.isEmpty && names.isNotEmpty) _selectedUnit = type == 'vaccine' && names.contains('ml') ? 'ml' : names.first;
+        if (_selectedUnit.isNotEmpty && !_units.contains(_selectedUnit)) _units.add(_selectedUnit);
+      });
+    } catch (error) {
+      if (mounted) _snack('មិនអាចទាញបញ្ជីខ្នាតបាន៖ $error');
+    } finally {
+      if (mounted) setState(() => _loadingUnits = false);
     }
   }
 
@@ -203,6 +228,7 @@ class _VetFormState extends State<_VetForm> {
             category: _breed.text.trim(),
             quantity: _quantity.text.trim(),
             sellingPrice: _price.text.trim(),
+            unit: _selectedUnit,
             image: _image,
           );
         case VetFormType.vaccination:
@@ -212,6 +238,7 @@ class _VetFormState extends State<_VetForm> {
               ownerId: _selectedOwnerId,
               animalId: _selectedAnimalId,
               vaccineName: _name.text.trim(),
+              unit: _selectedUnit,
               nextDueAt: _date,
               image: _image,
             );
@@ -220,6 +247,7 @@ class _VetFormState extends State<_VetForm> {
               ownerId: _selectedOwnerId,
               animalId: _selectedAnimalId,
               vaccineName: _name.text.trim(),
+              unit: _selectedUnit,
               nextDueAt: _date,
               image: _image,
             );
@@ -317,6 +345,7 @@ class _VetFormState extends State<_VetForm> {
                         ..._medicineFields(),
                       if (widget.type == VetFormType.vaccination) ...[
                         _field(_name, 'ឈ្មោះវ៉ាក់សាំង *'),
+                        _unitDropdown(),
                         _dateField('ថ្ងៃ dose បន្ទាប់'),
                       ],
                       if (widget.type == VetFormType.appointment) ...[
@@ -383,10 +412,24 @@ class _VetFormState extends State<_VetForm> {
     return [
       _field(_name, 'ឈ្មោះថ្នាំ *'),
       _field(_breed, 'ប្រភេទថ្នាំ *'),
+      _unitDropdown(),
       _field(_quantity, 'បរិមាណក្នុងស្តុក *', keyboard: TextInputType.number),
       _field(_price, 'តម្លៃលក់', keyboard: TextInputType.number),
     ];
   }
+
+  Widget _unitDropdown() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: DropdownButtonFormField<String>(
+      value: _units.contains(_selectedUnit) ? _selectedUnit : null,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'ខ្នាត *', border: OutlineInputBorder()),
+      items: _units.map((unit) => DropdownMenuItem(value: unit, child: Text(unit))).toList(),
+      onChanged: _loadingUnits ? null : (value) => setState(() => _selectedUnit = value ?? ''),
+      validator: (value) => value == null ? (_loadingUnits ? 'កំពុងទាញបញ្ជីខ្នាត' : 'សូមជ្រើសរើសខ្នាត') : null,
+      hint: Text(_loadingUnits ? 'កំពុងទាញខ្នាត...' : 'ជ្រើសរើសខ្នាត'),
+    ),
+  );
 
   // Owner and animal dropdowns used by vaccination and appointment forms
   List<Widget> _patientPicker() {

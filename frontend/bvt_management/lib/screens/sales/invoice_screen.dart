@@ -396,10 +396,10 @@ class InvoiceScreen extends StatelessWidget {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFFD9D9D9),
+            color: const Color(0xFF0A4F44),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.medication_outlined, color: _ink, size: 27),
+          child: const Icon(Icons.medication_outlined, color: Colors.white, size: 27),
         ),
         const SizedBox(width: 12),
         Expanded(

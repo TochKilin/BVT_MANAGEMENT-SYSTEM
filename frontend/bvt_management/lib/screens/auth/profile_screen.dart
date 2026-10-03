@@ -80,6 +80,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _editProfile() async {
+    final name = TextEditingController(text: _user?['name']?.toString() ?? '');
+    final email = TextEditingController(text: _user?['email']?.toString() ?? '');
+    final phone = TextEditingController(text: _user?['phone']?.toString() ?? '');
+    final formKey = GlobalKey<FormState>();
+    final values = await showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('កែប្រែព័ត៌មានអ្នកប្រើ'),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'ឈ្មោះ'),
+                validator: (value) => value == null || value.trim().isEmpty ? 'សូមបញ្ចូលឈ្មោះ' : null,
+              ),
+              TextFormField(
+                controller: email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'អ៊ីមែល'),
+                validator: (value) => value == null || !value.contains('@') ? 'សូមបញ្ចូលអ៊ីមែលត្រឹមត្រូវ' : null,
+              ),
+              TextFormField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'លេខទូរស័ព្ទ'),
+              ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('បោះបង់')),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(dialogContext, [name.text.trim(), email.text.trim(), phone.text.trim()]);
+            },
+            child: const Text('រក្សាទុក'),
+          ),
+        ],
+      ),
+    );
+    name.dispose();
+    email.dispose();
+    phone.dispose();
+    if (values == null) return;
+    try {
+      await AuthApi.updateProfile(name: values[0], email: values[1], phone: values[2]);
+      await _loadUser();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('បានកែប្រែព័ត៌មានអ្នកប្រើរួចរាល់')),
+        );
+      }
+    } on ApiException catch (error) {
+      _snack(error.message);
+    } catch (error) {
+      _snack('មិនអាចរក្សាទុកព័ត៌មានបានទេ: $error');
+    }
+  }
+
   void _snack(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -109,6 +172,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: const Color(0xFF1A202C),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'កែប្រែព័ត៌មាន',
+            onPressed: _loadingUser ? null : _editProfile,
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: _loadingUser

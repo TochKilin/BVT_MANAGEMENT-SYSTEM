@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bvt_management/medicines/medicine_screen.dart';
 import 'package:bvt_management/screens/purchases/purchases_screen.dart';
+import 'package:bvt_management/screens/purchases/inbound_purchase_screen.dart';
 import 'package:bvt_management/screens/sales/sales_pos_screen.dart';
 import 'package:bvt_management/screens/reports/reports_screen.dart';
 import 'package:bvt_management/screens/notifications/notification_screens.dart';
@@ -10,11 +11,14 @@ import 'package:bvt_management/screens/prescriptions/prescription_screens.dart';
 import 'package:bvt_management/screens/treatments/treatment_screens.dart';
 import 'package:bvt_management/screens/medicines/medicine_extra_screens.dart'
     show InventoryScreen;
+import 'package:bvt_management/screens/medicines/units_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../quick_action/quick_action.dart';
 import '../forms/vet_forms.dart';
 import '../../services/vet_api.dart';
+import '../../services/purchase_api.dart';
 import '../../services/supplyer.dart';
 import '../../services/auth_api.dart';
 import '../supplyer/supplyer.dart';
@@ -48,20 +52,84 @@ class _HomeScreenState extends State<HomeScreen> {
       const TreatmentListScreen(),
       const InventoryScreen(),
       const ReportsScreen(),
+      const InboundPurchaseScreen(),
     ];
 
     return Scaffold(
+      drawer: const _HomeDrawer(),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: KeyedSubtree(key: ValueKey(_tab), child: pages[_tab]),
-              ),
-            ),
-            _BottomNav(active: _tab, onChanged: _go),
-          ],
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: KeyedSubtree(key: ValueKey(_tab), child: pages[_tab]),
+        ),
+      ),
+      // Keep the background behind the gesture area and reserve the device's
+      // actual bottom inset with SafeArea.
+      bottomNavigationBar: Container(
+        color: const Color(0xFF0A4F44),
+        child: SafeArea(
+          top: false,
+          child: _BottomNav(active: _tab, onChanged: _go),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeDrawer extends StatelessWidget {
+  const _HomeDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: AuthApi.getUser(),
+          builder: (context, snapshot) {
+            final user = snapshot.data;
+            final rawAvatarUrl = user?['avatarUrl']?.toString();
+            final avatarUrl = rawAvatarUrl == null || rawAvatarUrl.isEmpty
+                ? null
+                : (rawAvatarUrl.startsWith('http://') || rawAvatarUrl.startsWith('https://')
+                    ? rawAvatarUrl
+                    : '${VetApi.baseUrl}${rawAvatarUrl.startsWith('/') ? rawAvatarUrl : '/$rawAvatarUrl'}');
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                UserAccountsDrawerHeader(
+                  decoration: const BoxDecoration(color: Color(0xFF0A4F44)),
+                  currentAccountPicture: CircleAvatar(
+                    backgroundColor: Colors.white,
+                    backgroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl),
+                    child: avatarUrl == null
+                        ? const Icon(Icons.person_rounded, color: Color(0xFF0A4F44), size: 30)
+                        : null,
+                  ),
+                  accountName: Text(user?['name']?.toString() ?? 'គណនីអ្នកប្រើ'),
+                  accountEmail: Text(user?['email']?.toString() ?? ''),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person_outline_rounded),
+                  title: const Text('ប្រវត្តិរូប និងព័ត៌មានអ្នកប្រើ'),
+                  subtitle: const Text('ប្តូរឈ្មោះ អ៊ីមែល និងលេខទូរស័ព្ទ'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text('ការកំណត់'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.findAncestorStateOfType<_HomeScreenState>()?._go(4);
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -83,6 +151,13 @@ class _DashboardState extends State<_Dashboard> {
   List<Map<String, dynamic>> _topSuppliers = [];
   Map<String, dynamic>? _user;
   int _notificationCount = 0;
+  int _vaccineQuantity = 0;
+  int _medicineStockQuantity = 0;
+
+  int get _pendingAppointmentCount => _appointments.where((appointment) {
+    final status = appointment['status']?.toString().toLowerCase() ?? '';
+    return !['completed', 'done', 'visited'].contains(status);
+  }).length;
 
   final _searchController = TextEditingController();
   List<_SearchResult> _searchResults = [];
@@ -123,6 +198,14 @@ class _DashboardState extends State<_Dashboard> {
       ]);
 
       if (mounted) {
+        final medicines = result[3] as List<Map<String, dynamic>>;
+        final medicineStockQuantity = medicines.fold<int>(0, (total, medicine) {
+          final batches = (medicine['batches'] as List? ?? const []).whereType<Map>();
+          return total + batches.fold<int>(
+            0,
+            (stock, batch) => stock + ((batch['quantity'] as num?)?.toInt() ?? 0),
+          );
+        });
         setState(() {
           _summary = result[0] as Map<String, dynamic>;
           _appointments = result[1] as List<Map<String, dynamic>>;
@@ -130,9 +213,28 @@ class _DashboardState extends State<_Dashboard> {
               .take(3)
               .toList();
           _notificationCount = countMedicineNotifications(
-            result[3] as List<Map<String, dynamic>>,
+            medicines,
           );
+          _medicineStockQuantity = medicineStockQuantity;
         });
+      }
+      try {
+        final orders = await PurchaseApi.getPurchases();
+        final vaccineItems = orders
+            .expand((order) => (order['items'] as List? ?? const []).whereType<Map>())
+            .where((item) => item['product_type']?.toString() == 'vaccine')
+            .toList();
+        final vaccineQuantity = vaccineItems.fold<int>(
+          0,
+          (total, item) => total + ((item['quantity'] as num?)?.toInt() ?? 0),
+        );
+        if (mounted) {
+          setState(() {
+            _vaccineQuantity = vaccineQuantity;
+          });
+        }
+      } catch (_) {
+        // Keep the dashboard usable if purchase history is unavailable.
       }
     } catch (_) {
       if (mounted) setState(() => _summary = {});
@@ -321,6 +423,14 @@ class _DashboardState extends State<_Dashboard> {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'បើកម៉ឺនុយ',
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                  icon: const Icon(Icons.menu_rounded, color: Color(0xFF0A4F44)),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -408,8 +518,8 @@ class _DashboardState extends State<_Dashboard> {
               children: [
                 _Stat(
                   icon: Icons.medication_outlined,
-                  number: '${_summary!['medicine_count'] ?? 0}',
-                  label: 'ប្រភេទថ្នាំ',
+                  number: '$_medicineStockQuantity',
+                  label: 'ថ្នាំក្នុងស្តុកសរុប',
                   accent: const Color(0xFF0E6B5C),
                   tint: const Color(0xFFD9D9D9),
                 ),
@@ -423,17 +533,19 @@ class _DashboardState extends State<_Dashboard> {
                 ),
                 _Stat(
                   icon: Icons.vaccines_outlined,
-                  number: '${_summary!['vaccines_due_30_days'] ?? 0}',
-                  label: 'វ៉ាក់សាំងត្រូវចាក់',
-                  accent: const Color(0xFFE05C86),
+                  number: '$_vaccineQuantity',
+                  label: 'វ៉ាក់សាំងក្នុងស្តុកសរុប',
+                  accent: const Color(0xFF0E6B5C),
                   tint: const Color(0xFFD9D9D9),
+                  onTap: () => widget.onNavigate(8),
                 ),
                 _Stat(
-                  icon: Icons.pets_rounded,
-                  number: '${_summary!['animal_count'] ?? 0}',
-                  label: 'អ្នកជំងឺសរុប',
+                  icon: Icons.calendar_month_rounded,
+                  number: '$_pendingAppointmentCount',
+                  label: 'ការណាត់ជួបមិនទាន់រួច',
                   accent: const Color(0xFF0A4F44),
                   tint: const Color(0xFFD9D9D9),
+                  onTap: () => widget.onNavigate(6),
                 ),
               ],
             ),
@@ -622,10 +734,72 @@ class _RecordsPageState extends State<_RecordsPage> {
   Future<void> _load() async {
     final loader = switch (widget.kind) {
       _PageKind.patients => VetApi.getPatients,
-      _PageKind.vaccinations => VetApi.getVaccinations,
       _PageKind.appointments => VetApi.getAppointments,
       _ => null,
     };
+
+    if (widget.kind == _PageKind.vaccinations) {
+      setState(() => _loading = true);
+      try {
+        final orders = await PurchaseApi.getPurchases();
+        final purchasedLines = orders.expand((order) {
+          final items = (order['items'] as List? ?? const []).whereType<Map>().toList();
+          return [
+            for (var index = 0; index < items.length; index++)
+              if (items[index]['product_type']?.toString() == 'vaccine') {
+                ...Map<String, dynamic>.from(items[index]),
+                'supplier_name': order['supplier_name']?.toString() ?? '',
+                'purchased_at': order['created_at']?.toString() ?? '',
+                'order_number': order['order_number']?.toString() ?? '',
+                'purchase_id': order['_id']?.toString() ?? '',
+                'purchase_item_index': index,
+              },
+          ];
+        }).toList();
+        final byVaccineName = <String, Map<String, dynamic>>{};
+        for (final line in purchasedLines) {
+          final name = (line['product_name'] ?? line['vaccine_name'] ?? '').toString().trim();
+          final key = name.toLowerCase();
+          if (key.isEmpty) continue;
+          final existing = byVaccineName[key];
+          if (existing == null) {
+            final quantity = (line['quantity'] as num?)?.toInt() ?? 0;
+            final unitPrice = (line['purchase_price'] as num?)?.toDouble() ?? 0;
+            byVaccineName[key] = {
+              ...line,
+              'product_name': name,
+              'quantity': quantity,
+              'purchase_price': unitPrice,
+              'total_purchase_value': quantity * unitPrice,
+              'purchase_count': 1,
+            };
+          } else {
+            final oldQuantity = (existing['quantity'] as num?)?.toInt() ?? 0;
+            final addedQuantity = (line['quantity'] as num?)?.toInt() ?? 0;
+            final addedPrice = (line['purchase_price'] as num?)?.toDouble() ?? 0;
+            final quantity = oldQuantity + addedQuantity;
+            final totalValue =
+                ((existing['total_purchase_value'] as num?)?.toDouble() ?? 0) +
+                addedQuantity * addedPrice;
+            existing['quantity'] = quantity;
+            existing['total_purchase_value'] = totalValue;
+            existing['purchase_price'] = quantity == 0 ? 0 : totalValue / quantity;
+            existing['purchase_count'] =
+                ((existing['purchase_count'] as num?)?.toInt() ?? 0) + 1;
+            if (existing['image']?.toString().isNotEmpty != true &&
+                line['image']?.toString().isNotEmpty == true) {
+              existing['image'] = line['image'];
+            }
+          }
+        }
+        _records = byVaccineName.values.toList();
+      } catch (_) {
+        _records = [];
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+      return;
+    }
 
     if (loader == null) return;
 
@@ -740,8 +914,16 @@ class _RecordsPageState extends State<_RecordsPage> {
             ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),
           _Row(
+            name: 'អ្នកជំងឺ',
+            detail: 'មើល និងគ្រប់គ្រងព័ត៌មានសត្វ',
+            icon: Icons.pets_rounded,
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
+            onTap: () => widget.onNavigate?.call(1),
+          ),
+          _Row(
             name: 'វ៉ាក់សាំង',
-            detail: 'កាលវិភាគ dose និងការរំលឹក',
+            detail: 'មើល និងគ្រប់គ្រងស្តុកវ៉ាក់សាំង',
             icon: Icons.vaccines_outlined,
             tint: const Color(0xFF0E6B5C),
             accent: const Color(0xFFFFFFFF),
@@ -772,6 +954,24 @@ class _RecordsPageState extends State<_RecordsPage> {
             onTap: () => widget.onNavigate?.call(8),
           ),
           _Row(
+            name: 'គ្រប់គ្រងខ្នាតថ្នាំ/វ៉ាក់សាំង',
+            detail: 'បន្ថែមខ្នាតសម្រាប់ជ្រើសរើសក្នុងទម្រង់',
+            icon: Icons.straighten_rounded,
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UnitsScreen()),
+            ),
+          ),
+          _Row(
+            name: 'កត់ត្រាទិញចូលថ្នាំ/វ៉ាក់សាំង',
+            detail: 'កត់ចំនួនទិញ និងតម្លៃចូលស្តុក',
+            icon: Icons.add_shopping_cart_rounded,
+            tint: const Color(0xFF0E6B5C),
+            accent: const Color(0xFFFFFFFF),
+            onTap: () => widget.onNavigate?.call(13),
+          ),
+          _Row(
             name: 'ការលក់ និងវិក្កយបត្រ',
             detail: 'មើលប្រតិបត្តិការលក់ប្រចាំថ្ងៃ',
             icon: Icons.receipt_long_outlined,
@@ -800,9 +1000,9 @@ class _RecordsPageState extends State<_RecordsPage> {
         ],
       ),
       _PageKind.vaccinations => (
-        'វ៉ាក់សាំង',
-        'ទិន្ន័យទាំងអស់',
-        'កត់ត្រាវ៉ាក់សាំង',
+        'ស្តុកវ៉ាក់សាំង',
+        'វ៉ាក់សាំងដែលបានទិញចូលសម្រាប់គ្លីនិក',
+        'ទិញចូលវ៉ាក់សាំង',
         Icons.add_rounded,
         const <Widget>[],
       ),
@@ -830,6 +1030,27 @@ class _RecordsPageState extends State<_RecordsPage> {
               onPressed: formType == null
                   ? null
                   : () async {
+                      if (kind == _PageKind.vaccinations) {
+                        await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                            child: FractionallySizedBox(
+                              heightFactor: 0.92,
+                              child: const InboundPurchaseScreen(
+                                initialType: 'vaccine',
+                              ),
+                            ),
+                          ),
+                        );
+                        if (mounted) await _load();
+                        return;
+                      }
                       final saved = await showVetForm(context, formType);
                       if (saved == true && mounted) {
                         await _load();
@@ -854,6 +1075,10 @@ class _RecordsPageState extends State<_RecordsPage> {
             ),
           ),
           const SizedBox(height: 18),
+          if (kind == _PageKind.vaccinations) ...[
+            _vaccinationSummary(),
+            const SizedBox(height: 18),
+          ],
           if (kind == _PageKind.appointments) ...[
             TextField(
               controller: _appointmentSearch,
@@ -923,6 +1148,83 @@ class _RecordsPageState extends State<_RecordsPage> {
                 child: item,
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _vaccinationSummary() {
+    final totalQuantity = _records.fold<int>(
+      0,
+      (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
+    );
+    final purchaseCount = _records.fold<int>(
+      0,
+      (sum, item) => sum + ((item['purchase_count'] as num?)?.toInt() ?? 0),
+    );
+    return Row(
+      children: [
+        Expanded(child: _statCard('ប្រភេទវ៉ាក់សាំង', '${_records.length}', Icons.vaccines_outlined)),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard('ដូសសរុបក្នុងស្តុក', '$totalQuantity', Icons.category_outlined)),
+        const SizedBox(width: 10),
+        Expanded(child: _statCard('កំណត់ត្រាទិញចូល', '$purchaseCount', Icons.inventory_2_outlined)),
+      ],
+    );
+  }
+
+  Future<void> _attachVaccineImage(Map<String, dynamic> item) async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 65,
+        maxWidth: 1000,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) throw StateError('រូបភាពទទេ');
+      await PurchaseApi.updateVaccineImage(
+        purchaseId: item['purchase_id'].toString(),
+        itemIndex: (item['purchase_item_index'] as num).toInt(),
+        image: 'data:image/jpeg;base64,${base64Encode(bytes)}',
+      );
+      if (mounted) {
+        await _load();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('បានភ្ជាប់រូបវ៉ាក់សាំងរួចរាល់')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('មិនអាចភ្ជាប់រូបវ៉ាក់សាំងបានទេ: $error')),
+        );
+      }
+    }
+  }
+
+  Widget _statCard(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF5F2),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0E6B5C),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Color(0xFF4A5568))),
         ],
       ),
     );
@@ -1038,13 +1340,24 @@ class _RecordsPageState extends State<_RecordsPage> {
 
     return displayedRecords.map((item) {
       final isVaccine = kind == _PageKind.vaccinations;
-      final name = isVaccine ? item['vaccine_name'] : item['reason'];
+      final name = isVaccine ? (item['product_name'] ?? item['vaccine_name']) : item['reason'];
       final detail = isVaccine
-          ? 'Dose បន្ទាប់: ${item['next_due_at'] ?? '-'}'
+          ? 'ស្តុក៖ ${item['quantity'] ?? 0} ${item['unit']?.toString().isNotEmpty == true ? item['unit'] : 'ដូស'} · ${item['supplier_name']?.toString().isNotEmpty == true ? item['supplier_name'] : 'មិនស្គាល់អ្នកផ្គត់ផ្គង់'}\nតម្លៃទិញមធ្យម៖ \$${((item['purchase_price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} / ${item['unit']?.toString().isNotEmpty == true ? item['unit'] : 'ដូស'} · ទិញចូល៖ ${item['purchased_at'] ?? '-'}'
           : 'កាលវិភាគ: ${item['scheduled_at'] ?? '-'}';
 
       final actions = isVaccine
           ? PopupMenuButton<String>(
+              onSelected: (action) {
+                if (action == 'image') _attachVaccineImage(item);
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'image',
+                  child: Text(item['image']?.toString().isNotEmpty == true ? 'ប្តូររូបភាព' : 'ភ្ជាប់រូបភាព'),
+                ),
+              ],
+            )
+          : PopupMenuButton<String>(
               onSelected: (action) async {
                 if (action == 'edit') {
                   final saved = await showVetForm(
@@ -1094,13 +1407,18 @@ class _RecordsPageState extends State<_RecordsPage> {
                 PopupMenuItem(value: 'edit', child: Text('កែប្រែ')),
                 PopupMenuItem(value: 'delete', child: Text('លុប')),
               ],
-            )
-          : null;
+            );
 
       final scheduled = DateTime.tryParse(item['scheduled_at']?.toString() ?? '');
-      final appointmentBadge = !isVaccine && scheduled != null
-          ? (scheduled.isBefore(DateTime.now()) ? 'Past' : 'Upcoming')
-          : null;
+      final status = item['status']?.toString().toLowerCase() ?? '';
+      final isCompleted = ['completed', 'done', 'visited'].contains(status);
+      final appointmentBadge = isVaccine
+          ? null
+          : isCompleted
+          ? 'Done'
+          : scheduled == null
+          ? 'Upcoming'
+          : (scheduled.isBefore(DateTime.now()) ? 'Past' : 'Upcoming');
 
       Future<void> showAppointmentDetails() async {
         if (isVaccine) return;
@@ -1111,13 +1429,32 @@ class _RecordsPageState extends State<_RecordsPage> {
             content: Text('កាលវិភាគ: ${item['scheduled_at'] ?? '-'}\nស្ថានភាព: ${appointmentBadge ?? '-'}\nម្ចាស់សត្វ: ${item['owner_name']?.toString().isNotEmpty == true ? item['owner_name'] : '-'}\nសត្វ: ${item['animal_name']?.toString().isNotEmpty == true ? item['animal_name'] : '-'}'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('បិទ')),
+              if (!isCompleted)
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, 'done'),
+                  child: const Text('Done', style: TextStyle(color: Color(0xFF0A4F44))),
+                ),
               TextButton(onPressed: () => Navigator.pop(dialogContext, 'edit'), child: const Text('កែប្រែ')),
               TextButton(onPressed: () => Navigator.pop(dialogContext, 'delete'), child: const Text('លុប', style: TextStyle(color: Colors.red))),
             ],
           ),
         );
         if (!mounted) return;
-        if (action == 'edit') {
+        if (action == 'done') {
+          try {
+            await VetApi.setAppointmentStatus(
+              id: item['_id'].toString(),
+              status: 'completed',
+            );
+            if (mounted) await _load();
+          } on ApiException catch (error) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(error.message)),
+              );
+            }
+          }
+        } else if (action == 'edit') {
           final saved = await showVetForm(context, VetFormType.appointment, record: item);
           if (saved == true && mounted) await _load();
         } else if (action == 'delete') {
@@ -1140,14 +1477,15 @@ class _RecordsPageState extends State<_RecordsPage> {
             ? Icons.vaccines_outlined
             : Icons.calendar_month_rounded,
         tint: isVaccine
-            ? const Color(0xFFE0F2EF)
+            ? const Color(0xFF0E6B5C)
             : const Color(0xFFF59E0B),
         accent: isVaccine
-            ? const Color(0xFF0E6B5C)
+            ? const Color(0xFFFFFFFF)
             : const Color(0xFFFFFFFF),
         image: isVaccine ? item['image']?.toString() ?? '' : '',
         trailing: actions,
         badge: appointmentBadge,
+        badgeSuccess: appointmentBadge == 'Done',
         onTap: isVaccine ? null : showAppointmentDetails,
       );
     }).toList();
@@ -1163,6 +1501,7 @@ class _Row extends StatelessWidget {
   final VoidCallback? onTap;
   final String image;
   final String? badge;
+  final bool badgeSuccess;
   final Widget? trailing;
 
   const _Row({
@@ -1175,6 +1514,7 @@ class _Row extends StatelessWidget {
     this.image = '',
     this.trailing,
     this.badge,
+    this.badgeSuccess = false,
   });
 
   @override
@@ -1189,7 +1529,7 @@ class _Row extends StatelessWidget {
           decoration: _card(17),
           child: Row(
             children: [
-              _imageBox(),
+              _imageBox(context),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -1215,14 +1555,18 @@ class _Row extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFDE3EC),
+                              color: badgeSuccess
+                                  ? const Color(0xFFD9F2E9)
+                                  : const Color(0xFFFDE3EC),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               badge!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
-                                color: Color(0xFFE05C86),
+                                color: badgeSuccess
+                                    ? const Color(0xFF0A4F44)
+                                    : const Color(0xFFE05C86),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1247,7 +1591,7 @@ class _Row extends StatelessWidget {
     );
   }
 
-  Widget _imageBox() {
+  Widget _imageBox(BuildContext context) {
     if (image.isEmpty) {
       return Container(
         width: 45,
@@ -1264,14 +1608,41 @@ class _Row extends StatelessWidget {
       final bytes = base64Decode(
         image.contains(',') ? image.split(',').last : image,
       );
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: Image.memory(
-          bytes,
-          width: 45,
-          height: 45,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _fallback(),
+      return GestureDetector(
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (dialogContext) => Dialog.fullscreen(
+            backgroundColor: Colors.black,
+            child: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4,
+                    child: Image.memory(bytes, fit: BoxFit.contain),
+                  ),
+                ),
+                Positioned(
+                  top: 24,
+                  right: 12,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(13),
+          child: Image.memory(
+            bytes,
+            width: 45,
+            height: 45,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallback(),
+          ),
         ),
       );
     } catch (_) {
@@ -1284,10 +1655,10 @@ class _Row extends StatelessWidget {
       width: 45,
       height: 45,
       decoration: BoxDecoration(
-        color: Color(0xFFE0F2EF),
+        color: tint,
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Icon(icon, color: Color(0xFF0A4F44)),
+      child: Icon(icon, color: accent),
     );
   }
 }
@@ -1299,61 +1670,80 @@ class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.active, required this.onChanged});
 
   static const items = [
-    (Icons.home_rounded, 'ទំព័រដើម'),
-    (Icons.pets_rounded, 'អ្នកជំងឺ'),
-    (Icons.medication_outlined, 'ថ្នាំ'),
-    (Icons.notifications_none_rounded, 'ជូនដំណឹង'),
-    (Icons.menu_rounded, 'ម៉ឺនុយ'),
+    (Icons.home_rounded, 'ទំព័រដើម', 0),
+    (Icons.vaccines_outlined, 'វ៉ាក់សាំង', 5),
+    (Icons.medication_outlined, 'ថ្នាំ', 2),
+    (Icons.notifications_none_rounded, 'ជូនដំណឹង', 3),
+    (Icons.menu_rounded, 'ម៉ឺនុយ', 4),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A4F44),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      child: Row(
-        children: List.generate(items.length, (i) {
-          final selected = active == i;
-          final item = items[i];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final iconSize = (constraints.maxWidth / 18).clamp(20.0, 25.0);
+        final horizontalPadding = (constraints.maxWidth * 0.025).clamp(6.0, 16.0);
 
-          return Expanded(
-            child: InkWell(
-              onTap: () => onChanged(i),
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.$1,
-                      color: selected
-                          ? const Color(0xFFFFFFFF)
-                          : const Color(0xFF718096),
-                      size: 23,
-                    ),
-                    const SizedBox(height: 3),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      height: 4,
-                      width: selected ? 18 : 4,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? const Color(0xFFFFFFFF)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
+        return Material(
+          color: const Color(0xFF0A4F44),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(horizontalPadding, 7, horizontalPadding, 6),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0A4F44),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+            ),
+            child: Row(
+              children: List.generate(items.length, (i) {
+                final item = items[i];
+                final selected = active == item.$3;
+
+                return Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: selected,
+                    label: item.$2,
+                    child: InkWell(
+                      onTap: () => onChanged(item.$3),
+                      borderRadius: BorderRadius.circular(16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                item.$1,
+                                color: selected
+                                    ? const Color(0xFFFFFFFF)
+                                    : const Color(0xFF718096),
+                                size: iconSize,
+                              ),
+                              const SizedBox(height: 3),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                height: 4,
+                                width: selected ? 18 : 4,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? const Color(0xFFFFFFFF)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }),
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      },
     );
   }
 }

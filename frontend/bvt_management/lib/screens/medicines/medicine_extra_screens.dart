@@ -160,9 +160,16 @@ class _MedicineCategoryScreenState extends State<MedicineCategoryScreen> {
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       actions: [
-        IconButton(
+        IconButton.filled(
           onPressed: _addCategory,
-          icon: const Icon(Icons.add, color: _medicineGreen),
+          icon: const Icon(Icons.add),
+          style: IconButton.styleFrom(
+            backgroundColor: _medicineGreen,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ),
         IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
       ],
@@ -766,10 +773,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
             width: 62,
             height: 62,
             decoration: BoxDecoration(
-              color: const Color(0xFFB7D9D5),
+              color: const Color(0xFF0A4F44),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.medication_outlined, color: _medicineGreen),
+            child: const Icon(Icons.medication_outlined, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(

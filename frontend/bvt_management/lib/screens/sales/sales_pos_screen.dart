@@ -233,15 +233,23 @@ class _SalesPosScreenState extends State<SalesPosScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromARGB(255, 158, 158, 159)),
+        border: Border.all(color: const Color(0xFFD5D9DC), width: 1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.inventory_2_outlined,
-            size: 39,
-            color: Color.fromARGB(255, 175, 175, 175),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A4F44),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              size: 28,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -276,10 +284,14 @@ class _SalesPosScreenState extends State<SalesPosScreen> {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(width: 12),
-          IconButton.filledTonal(
+          IconButton.filled(
             onPressed: () => _add(medicine, batch),
             icon: const Icon(Icons.add),
             tooltip: 'បន្ថែមទៅកន្ត្រក',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF0A4F44),
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),

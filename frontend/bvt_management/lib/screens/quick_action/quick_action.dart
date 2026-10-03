@@ -63,7 +63,7 @@ class QuickActionsGrid extends StatelessWidget {
           label: 'ការព្យាបាល',
           subtitle: 'Treatment',
           accent: const Color(0xFFFFFFFF),
-          tint: const Color(0xFF0E6B5C),
+          tint: const Color(0xFF0A4F44),
           onTap: () => onNavigate(10),
         ),
       ],

@@ -29,7 +29,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is needed to scan medicine QR codes and barcodes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo library access is needed to add medicine images.</string>
+	<string>Photo library access is needed to add medicine and vaccine images.</string>
 	<!-- Local Dart API is HTTP during development. Replace with HTTPS in production. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

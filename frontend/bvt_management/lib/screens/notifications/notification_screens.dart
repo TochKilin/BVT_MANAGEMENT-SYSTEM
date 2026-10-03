@@ -121,7 +121,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         'ស្តុកទាប',
         'Low stock',
         Icons.inventory_2_outlined,
-        const Color.fromARGB(255, 100, 61, 3),
+        const Color(0xFF0A4F44),
       ),
       (
         'expiring',
@@ -186,6 +186,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 : '${matches.length} មុខ • ${group.$3}',
                             icon: group.$4,
                             color: group.$5,
+                            filledIcon: group.$1 == 'low',
                             onTap: () => _openDetail(group.$1, matches.first),
                           ),
                         );
@@ -229,6 +230,7 @@ class _NotificationRow extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final bool filledIcon;
   final VoidCallback onTap;
 
   const _NotificationRow({
@@ -236,6 +238,7 @@ class _NotificationRow extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.color,
+    this.filledIcon = false,
     required this.onTap,
   });
 
@@ -258,10 +261,10 @@ class _NotificationRow extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(.08),
+                color: filledIcon ? color : color.withOpacity(.08),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(icon, color: color, size: 26),
+              child: Icon(icon, color: filledIcon ? Colors.white : color, size: 26),
             ),
             const SizedBox(width: 13),
             Expanded(

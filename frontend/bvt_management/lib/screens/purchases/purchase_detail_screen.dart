@@ -122,7 +122,10 @@ class PurchaseDetailScreen extends StatelessWidget {
   Widget _itemCard(Map<String, dynamic> item) {
     final quantity = (item['quantity'] as num? ?? 0).toString();
     final sku = item['sku']?.toString();
-    final label = (sku == null || sku.isEmpty) ? 'ថ្នាំក្នុងការបញ្ជាទិញ' : 'SKU: $sku';
+    final productType = item['product_type']?.toString() ?? 'medicine';
+    final label = productType == 'vaccine'
+        ? 'វ៉ាក់សាំងក្នុងការទិញចូល'
+        : (sku == null || sku.isEmpty ? 'ថ្នាំក្នុងការបញ្ជាទិញ' : 'SKU: $sku');
     final unitPrice = (item['purchase_price'] as num? ?? 0).toDouble();
     final lineTotal = unitPrice * ((item['quantity'] as num? ?? 0).toDouble());
     return Container(
@@ -133,7 +136,7 @@ class PurchaseDetailScreen extends StatelessWidget {
         const Icon(Icons.inventory_2_outlined, size: 42, color: _ink),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(item['medicine_name']?.toString() ?? 'ថ្នាំ', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          Text(item['product_name']?.toString() ?? item['medicine_name']?.toString() ?? 'ទំនិញ', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6), Text(label, style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 4), Text('\$${lineTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Color(0xFF4A5568))),
         ])),
@@ -142,9 +145,8 @@ class PurchaseDetailScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(color: const Color(0xFFE0E0E0), borderRadius: BorderRadius.circular(7)),
-            child: Text('× $quantity', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            child: Text('× $quantity ${item['unit']?.toString().isNotEmpty == true ? item['unit'] : 'ឯកតា'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ),
-          const SizedBox(height: 4), const Text('Units', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
         ]),
       ]),
     );

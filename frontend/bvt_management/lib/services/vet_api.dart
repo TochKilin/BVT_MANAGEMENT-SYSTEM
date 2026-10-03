@@ -136,11 +136,13 @@ class VetApi {
     required String category,
     required String quantity,
     required String sellingPrice,
+    String unit = '',
     String image = '',
   }) => _post('/api/v1/medicines', {
     'name': name,
     'generic_name': '',
     'category': category,
+    'unit': unit,
     'manufacturer': '',
     'purchase_price': 0,
     'selling_price': double.tryParse(sellingPrice) ?? 0,
@@ -163,12 +165,14 @@ class VetApi {
     required String ownerId,
     required String animalId,
     required String vaccineName,
+    String unit = '',
     required DateTime nextDueAt,
     String image = '',
   }) => _post('/api/v1/vaccinations', {
     'owner_id': ownerId,
     'animal_id': animalId,
     'vaccine_name': vaccineName,
+    'unit': unit,
     'administered_at': DateTime.now().toIso8601String(),
     'next_due_at': nextDueAt.toIso8601String(),
     'image': image,
@@ -179,12 +183,14 @@ class VetApi {
     required String ownerId,
     required String animalId,
     required String vaccineName,
+    String unit = '',
     required DateTime nextDueAt,
     required String image,
   }) => _put('/api/v1/vaccinations/$id', {
     'owner_id': ownerId,
     'animal_id': animalId,
     'vaccine_name': vaccineName,
+    'unit': unit,
     'next_due_at': nextDueAt.toIso8601String(),
     'image': image,
   });
@@ -216,6 +222,11 @@ class VetApi {
     'reason': reason,
     'scheduled_at': scheduledAt.toIso8601String(),
   });
+
+  static Future<void> setAppointmentStatus({
+    required String id,
+    required String status,
+  }) => _put('/api/v1/appointments/$id', {'status': status});
 
   static Future<void> deleteAppointment(String id) =>
       _delete('/api/v1/appointments/$id');

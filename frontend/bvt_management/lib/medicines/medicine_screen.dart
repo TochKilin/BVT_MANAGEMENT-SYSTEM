@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:bvt_management/screens/home/Home_screen.dart';
 import 'package:bvt_management/services/medicine_api.dart';
+import 'package:bvt_management/services/unit_api.dart';
 import 'package:bvt_management/screens/medicines/medicine_extra_screens.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -88,6 +89,52 @@ class _MedicineScreenState extends State<MedicineScreen> {
       builder: (_) => _MedicineForm(suppliers: _suppliers),
     );
     if (saved == true) _load();
+  }
+
+  Widget _summaryCard({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      constraints: const BoxConstraints(minHeight: 140),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF5F2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A4F44),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: Colors.white, size: 21),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 26,
+              height: 1,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A202C),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF718096)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openEdit(Map<String, dynamic> medicine) async {
@@ -211,21 +258,11 @@ class _MedicineScreenState extends State<MedicineScreen> {
                               color: const Color(0xFF1A202C),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_all.length} ប្រភេទថ្នាំ${lowStockCount > 0 ? ' · $lowStockCount ស្តុកទាប' : ''}',
-                            style: TextStyle(
-                              color: lowStockCount > 0
-                                  ? const Color(0xFF0E6B5C)
-                                  : const Color(0xFF4A5568),
-                              fontSize: 13,
-                            ),
-                          ),
                         ],
                       ),
                     ),
                     Material(
-                      color: const Color(0xFF0E6B5C),
+                      color: const Color(0xFF0A4F44),
                       borderRadius: BorderRadius.circular(14),
                       child: InkWell(
                         onTap: _openAdd,
@@ -243,6 +280,26 @@ class _MedicineScreenState extends State<MedicineScreen> {
                       icon: const Icon(
                         Icons.category_outlined,
                         color: Color(0xFF0E6B5C),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _summaryCard(
+                        icon: Icons.category_outlined,
+                        label: 'ប្រភេទថ្នាំ',
+                        value: '${_all.length}',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _summaryCard(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'ស្តុកទាប',
+                        value: '$lowStockCount',
                       ),
                     ),
                   ],
@@ -396,6 +453,7 @@ class _MedicineCard extends StatelessWidget {
     final quantity = MedicineApi.quantityOf(medicine);
     final isLow = MedicineApi.isLowStock(medicine);
     final image = medicine['image']?.toString() ?? '';
+    final unit = medicine['unit']?.toString().trim() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -405,7 +463,7 @@ class _MedicineCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _imageBox(image, isLow),
+              _imageBox(context, image, isLow),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -494,6 +552,8 @@ class _MedicineCard extends StatelessWidget {
                 ),
               ),
               _iconText(Icons.inventory_2_outlined, 'ស្តុក $quantity'),
+              if (unit.isNotEmpty)
+                _iconText(Icons.straighten_rounded, 'ខ្នាត $unit'),
               if (supplierName != null)
                 _iconText(Icons.local_shipping_outlined, supplierName!),
             ],
@@ -503,7 +563,7 @@ class _MedicineCard extends StatelessWidget {
     );
   }
 
-  Widget _imageBox(String image, bool isLow) {
+  Widget _imageBox(BuildContext context, String image, bool isLow) {
     final accent = isLow ? const Color(0xFF0E6B5C) : const Color(0xFF0E6B5C);
     final tint = accent.withOpacity(0.15);
 
@@ -522,9 +582,40 @@ class _MedicineCard extends StatelessWidget {
       final bytes = base64Decode(
         image.contains(',') ? image.split(',').last : image,
       );
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Image.memory(bytes, width: 46, height: 46, fit: BoxFit.cover),
+      return GestureDetector(
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (dialogContext) => Dialog.fullscreen(
+            backgroundColor: Colors.black,
+            child: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4,
+                    child: Image.memory(bytes, fit: BoxFit.contain),
+                  ),
+                ),
+                Positioned(
+                  top: 24,
+                  right: 12,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.memory(bytes, width: 46, height: 46, fit: BoxFit.cover),
+        ),
       );
     } catch (_) {
       return Container(
@@ -580,12 +671,16 @@ class _MedicineFormState extends State<_MedicineForm> {
   String? _supplierId;
   String _image = '';
   bool _saving = false;
+  late Future<List<Map<String, dynamic>>> _categoriesFuture;
+  List<String> _units = [];
+  bool _loadingUnits = true;
 
   bool get _isEdit => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
+    _categoriesFuture = MedicineApi.getCategories();
     final m = widget.existing ?? const {};
     _name = TextEditingController(text: m['name']?.toString() ?? '');
     _genericName = TextEditingController(
@@ -611,6 +706,22 @@ class _MedicineFormState extends State<_MedicineForm> {
     _purchasePrice = TextEditingController(text: '0');
     _supplierId = _isEdit ? MedicineApi.latestSupplierId(m) : null;
     _image = m['image']?.toString() ?? '';
+    _loadUnits(m['unit']?.toString() ?? 'Bottle');
+  }
+
+  Future<void> _loadUnits(String currentUnit) async {
+    try {
+      final rows = await UnitApi.getUnits();
+      if (!mounted) return;
+      setState(() {
+        _units = rows.where((row) => row['type'] == 'medicine').map((row) => row['name'].toString()).toList();
+        if (currentUnit.isNotEmpty && !_units.contains(currentUnit)) _units.add(currentUnit);
+        if (_unit.text.isEmpty && _units.isNotEmpty) _unit.text = _units.first;
+        _loadingUnits = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() { _units = [_unit.text]; _loadingUnits = false; });
+    }
   }
 
   @override
@@ -783,9 +894,9 @@ class _MedicineFormState extends State<_MedicineForm> {
                     children: [
                       _field(_name, 'ឈ្មោះថ្នាំ *'),
                       _field(_genericName, 'ឈ្មោះទូទៅ (Generic)'),
-                      _field(_category, 'ប្រភេទថ្នាំ'),
+                      _categoryDropdown(),
                       _field(_manufacturer, 'ក្រុមហ៊ុនផលិត'),
-                      _field(_unit, 'ឯកតា'),
+                      _unitDropdown(),
                       _field(_barcode, 'Barcode / QR Code'),
                       _field(_dosageForm, 'ទម្រង់ថ្នាំ'),
                       _field(_description, 'ការពិពណ៌នា', maxLines: 3),
@@ -888,6 +999,78 @@ class _MedicineFormState extends State<_MedicineForm> {
           ),
         ],
         onChanged: (v) => setState(() => _supplierId = v),
+      ),
+    );
+  }
+
+  Widget _unitDropdown() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: DropdownButtonFormField<String>(
+      value: _units.contains(_unit.text) ? _unit.text : null,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'ខ្នាត *', border: OutlineInputBorder()),
+      items: _units.map((unit) => DropdownMenuItem(value: unit, child: Text(unit))).toList(),
+      onChanged: _loadingUnits ? null : (value) { if (value != null) setState(() => _unit.text = value); },
+      validator: (value) => value == null ? (_loadingUnits ? 'កំពុងទាញបញ្ជីខ្នាត' : 'សូមជ្រើសរើសខ្នាត') : null,
+      hint: Text(_loadingUnits ? 'កំពុងទាញខ្នាត...' : 'ជ្រើសរើសខ្នាត'),
+    ),
+  );
+
+  Widget _categoryDropdown() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _categoriesFuture,
+        builder: (context, snapshot) {
+          final categories = snapshot.data ?? const <Map<String, dynamic>>[];
+          final names = categories
+              .map((category) => category['name']?.toString().trim() ?? '')
+              .where((name) => name.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+          final current = _category.text.trim();
+          // Keep an existing value selectable if its category was removed
+          // after this medicine was created.
+          if (current.isNotEmpty && !names.contains(current)) {
+            names.insert(0, current);
+          }
+
+          if (snapshot.hasError) {
+            return TextFormField(
+              controller: _category,
+              decoration: InputDecoration(
+                labelText: 'ប្រភេទថ្នាំ',
+                helperText: 'មិនអាចទាញប្រភេទថ្នាំបាន សូមបញ្ចូលដោយដៃ',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            );
+          }
+
+          return DropdownButtonFormField<String>(
+            initialValue: current.isEmpty ? null : current,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: 'ប្រភេទថ្នាំ',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            hint: Text(snapshot.connectionState == ConnectionState.waiting
+                ? 'កំពុងទាញប្រភេទថ្នាំ...'
+                : 'ជ្រើសរើសប្រភេទថ្នាំ'),
+            items: names
+                .map((name) => DropdownMenuItem(value: name, child: Text(name)))
+                .toList(),
+            onChanged: snapshot.connectionState == ConnectionState.waiting
+                ? null
+                : (value) {
+                    if (value != null) _category.text = value;
+                  },
+          );
+        },
       ),
     );
   }
@@ -1129,7 +1312,7 @@ BoxDecoration _cardDeco(double radius) {
   return BoxDecoration(
     color: const Color(0xFFF8FAF9),
     borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: const Color(0xFF4A5568)),
+    border: Border.all(color: const Color(0xFFD5D9DC), width: 1),
     boxShadow: const [
       BoxShadow(color: Color(0x0A172B24), blurRadius: 16, offset: Offset(0, 5)),
     ],

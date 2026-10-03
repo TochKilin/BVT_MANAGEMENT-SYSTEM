@@ -90,6 +90,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 padding: const EdgeInsets.all(18),
                 children: [
                   SegmentedButton<int>(
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((states) =>
+                          states.contains(WidgetState.selected)
+                              ? const Color(0xFF0A4F44)
+                              : Colors.white),
+                      foregroundColor: WidgetStateProperty.resolveWith((states) =>
+                          states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : const Color(0xFF4A5568)),
+                    ),
                     segments: const [
                       ButtonSegment(value: 7, label: Text('7 ថ្ងៃ')),
                       ButtonSegment(value: 30, label: Text('30 ថ្ងៃ')),
@@ -109,7 +119,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           'ចំណូលពីការលក់',
                           _money(_report['sales_total']),
                           Icons.trending_up,
-                          _green,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -118,7 +127,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           'ចំណាយទិញ',
                           _money(_report['purchase_total']),
                           Icons.shopping_bag_outlined,
-                          Colors.orange,
                         ),
                       ),
                     ],
@@ -131,7 +139,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           'ប្រតិបត្តិការលក់',
                           '${_report['sales_count'] ?? 0}',
                           Icons.receipt_long_outlined,
-                          Colors.blue,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -140,7 +147,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           'ការបញ្ជាទិញ',
                           '${_report['purchase_count'] ?? 0}',
                           Icons.local_shipping_outlined,
-                          Colors.purple,
                         ),
                       ),
                     ],
@@ -227,7 +233,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _metric(String title, String value, IconData icon, Color color) =>
+  Widget _metric(String title, String value, IconData icon) =>
       Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -238,7 +244,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A4F44),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, color: Colors.white, size: 21),
+            ),
             const SizedBox(height: 13),
             Text(
               value,

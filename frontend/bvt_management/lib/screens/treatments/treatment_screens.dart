@@ -255,7 +255,7 @@ class TreatmentDetailScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '${item['dosage'] ?? ''} • ${item['frequency'] ?? ''}',
+                              '${item['dosage'] ?? ''} ${item['unit'] ?? ''} • ${item['frequency'] ?? ''}',
                             ),
                             Text(
                               'រយៈពេល ${item['duration'] ?? ''}',
@@ -306,7 +306,7 @@ class _CreateTreatmentScreenState extends State<CreateTreatmentScreen> {
     const SizedBox(height: 12), _input('រោគសញ្ញា', _symptoms, required: false), const SizedBox(height: 12), _input('រោគវិនិច្ឆ័យ', _diagnosis), const SizedBox(height: 12), _input('ផែនការព្យាបាល', _treatment, lines: 3),
     const SizedBox(height: 18), const Text('ថ្នាំដែលបានចេញវេជ្ជបញ្ជា', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)), const SizedBox(height: 10),
     _drop<Map<String, dynamic>>('ជ្រើសរើសថ្នាំ', _medicine, _medicines, (item) => item['name']?.toString() ?? '', (v) => setState(() => _medicine = v), required: false),
-    if (_medicine != null) ...[const SizedBox(height: 12), _input('កម្រិតថ្នាំ', _dosage, required: false, hint: 'ឧ. 10 mg/kg'), const SizedBox(height: 12), _input('របៀបប្រើ', _frequency, required: false, hint: 'ឧ. 2 ដងក្នុងមួយថ្ងៃ'), const SizedBox(height: 12), _input('រយៈពេល', _duration, required: false, hint: 'ឧ. 7 ថ្ងៃ')],
+    if (_medicine != null) ...[const SizedBox(height: 12), InputDecorator(decoration: _decoration('ខ្នាត'), child: Text((_medicine!['unit']?.toString().trim().isNotEmpty ?? false) ? _medicine!['unit'].toString() : 'មិនបានកំណត់')), const SizedBox(height: 12), _input('កម្រិតថ្នាំ', _dosage, required: false, hint: 'ឧ. 10 mg/kg'), const SizedBox(height: 12), _input('របៀបប្រើ', _frequency, required: false, hint: 'ឧ. 2 ដងក្នុងមួយថ្ងៃ'), const SizedBox(height: 12), _input('រយៈពេល', _duration, required: false, hint: 'ឧ. 7 ថ្ងៃ')],
     const SizedBox(height: 24), SizedBox(height: 54, child: FilledButton(onPressed: _saving ? null : _save, style: FilledButton.styleFrom(backgroundColor: _treatmentGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text('រក្សាទុកការព្យាបាល', style: TextStyle(fontWeight: FontWeight.w700)))),
   ])));
 
@@ -315,7 +315,7 @@ class _CreateTreatmentScreenState extends State<CreateTreatmentScreen> {
   InputDecoration _decoration(String label) => InputDecoration(labelText: label, contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFD8D8D8))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _treatmentGreen, width: 1.5)));
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
-    final prescriptions = _medicine == null ? <Map<String, dynamic>>[] : [<String, dynamic>{'medicine_id': _medicine!['_id'], 'medicine_name': _medicine!['name']?.toString() ?? '', 'dosage': _dosage.text.trim(), 'frequency': _frequency.text.trim(), 'duration': _duration.text.trim()}];
+    final prescriptions = _medicine == null ? <Map<String, dynamic>>[] : [<String, dynamic>{'medicine_id': _medicine!['_id'], 'medicine_name': _medicine!['name']?.toString() ?? '', 'unit': _medicine!['unit']?.toString() ?? '', 'dosage': _dosage.text.trim(), 'frequency': _frequency.text.trim(), 'duration': _duration.text.trim()}];
     setState(() => _saving = true);
     try { final created = await VetApi.createMedicalRecord(ownerId: _owner!['_id'].toString(), animalId: _animal!['_id'].toString(), symptoms: _symptoms.text.trim(), diagnosis: _diagnosis.text.trim(), treatment: _treatment.text.trim(), prescriptionItems: prescriptions); if (mounted) Navigator.pop(context, {...created, 'animal_name': _animal!['name']?.toString() ?? 'អ្នកជំងឺ'}); }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
