@@ -52,6 +52,7 @@ class PurchaseController {
           items.add({'product_type': productType, 'medicine_id': medicineId, 'medicine_name': medicine['name'], 'product_name': medicine['name'], 'quantity': qty, 'purchase_price': price, 'unit': unit});
           final batches = (medicine['batches'] as List? ?? const []).toList();
           batches.add({
+            '_id': ObjectId(),
             'batch_number': 'PO-${DateTime.now().millisecondsSinceEpoch}',
             'manufacture_date': DateTime.now().toIso8601String(),
             'expiry_date': DateTime.now().add(const Duration(days: 365)).toIso8601String(),

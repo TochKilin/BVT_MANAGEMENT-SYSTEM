@@ -584,11 +584,46 @@ class _VetFormState extends State<_VetForm> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          if (preview != null) ...[preview, const SizedBox(width: 10)],
-          OutlinedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.add_a_photo_outlined),
-            label: Text(_image.isEmpty ? 'បញ្ចូលរូបភាព' : 'ប្តូររូបភាព'),
+          Material(
+            color: const Color(0xFFEAF5F2),
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: _pickImage,
+              child: SizedBox(
+                width: 128,
+                height: 128,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (preview != null)
+                      preview
+                    else
+                      const Center(
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          color: Color(0xFF0E6B5C),
+                          size: 38,
+                        ),
+                      ),
+                    if (preview != null)
+                      const Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Color(0xFFEAF5F2),
+                          child: Icon(
+                            Icons.camera_alt_rounded,
+                            color: Color(0xFF0E6B5C),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
           if (_image.isNotEmpty)
             IconButton(

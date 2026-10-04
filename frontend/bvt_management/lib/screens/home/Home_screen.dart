@@ -12,6 +12,7 @@ import 'package:bvt_management/screens/treatments/treatment_screens.dart';
 import 'package:bvt_management/screens/medicines/medicine_extra_screens.dart'
     show InventoryScreen;
 import 'package:bvt_management/screens/medicines/units_screen.dart';
+import 'package:bvt_management/screens/medicines/medicine_vaccine_catalog_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -42,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _Dashboard(onNavigate: _go),
       _RecordsPage(kind: _PageKind.patients, onNavigate: _go),
       const MedicineScreen(),
-      NotificationScreen(onOpenMedicines: () => _go(2)),
+      MedicineVaccineCatalogScreen(onBack: () => _go(0)),
       _RecordsPage(kind: _PageKind.menu, onNavigate: _go),
       _RecordsPage(kind: _PageKind.vaccinations, onNavigate: _go),
       _RecordsPage(kind: _PageKind.appointments, onNavigate: _go),
@@ -386,7 +387,16 @@ class _DashboardState extends State<_Dashboard> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => widget.onNavigate(3),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => NotificationScreen(
+                        onOpenMedicines: () {
+                          Navigator.of(context).pop();
+                          widget.onNavigate(2);
+                        },
+                      ),
+                    ),
+                  ),
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     clipBehavior: Clip.none,
@@ -1673,7 +1683,7 @@ class _BottomNav extends StatelessWidget {
     (Icons.home_rounded, 'ទំព័រដើម', 0),
     (Icons.vaccines_outlined, 'វ៉ាក់សាំង', 5),
     (Icons.medication_outlined, 'ថ្នាំ', 2),
-    (Icons.notifications_none_rounded, 'ជូនដំណឹង', 3),
+    (Icons.medical_services_outlined, 'ថ្នាំ/វ៉ាក់សាំង', 3),
     (Icons.menu_rounded, 'ម៉ឺនុយ', 4),
   ];
 

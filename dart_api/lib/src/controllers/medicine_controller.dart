@@ -12,9 +12,27 @@ class MedicineController {
     try {
       final collection = await DatabaseService.getCollection('medicines');
       final data = await collection.find().toList();
-      final list = data
-          .map((m) => jsonSafe(MedicineModel.fromMap(m).toMap()))
-          .toList();
+      final list = <dynamic>[];
+      for (final medicine in data) {
+        final batches = (medicine['batches'] as List? ?? const [])
+            .whereType<Map>()
+            .map((batch) => Map<String, dynamic>.from(batch))
+            .toList();
+        var changed = false;
+        for (final batch in batches) {
+          if (batch['_id'] == null || batch['_id'].toString().isEmpty) {
+            batch['_id'] = ObjectId();
+            changed = true;
+          }
+        }
+        if (changed) {
+          medicine['batches'] = batches;
+          await collection.updateOne(where.id(medicine['_id'] as ObjectId), {
+            r'$set': {'batches': batches},
+          });
+        }
+        list.add(jsonSafe(MedicineModel.fromMap(medicine).toMap()));
+      }
       return Response.ok(jsonEncode(list), headers: _headers);
     } catch (error) {
       return _error(error);
@@ -58,6 +76,17 @@ class MedicineController {
       }
 
       final body = jsonDecode(payload) as Map<String, dynamic>;
+
+      // Embedded batches need persistent IDs because the POS uses them to
+      // identify which stock lot is being sold.
+      final batches = (body['batches'] as List? ?? const [])
+          .whereType<Map>()
+          .map((batch) => Map<String, dynamic>.from(batch))
+          .toList();
+      for (final batch in batches) {
+        batch['_id'] ??= ObjectId();
+      }
+      body['batches'] = batches;
       final medicine = MedicineModel.fromMap(body);
 
       if (medicine.name.isEmpty) {
@@ -207,6 +236,7 @@ class MedicineController {
       }
 
       body['batch_number'] ??= 'B-${DateTime.now().millisecondsSinceEpoch}';
+      body['_id'] ??= ObjectId();
       body['manufacture_date'] ??= DateTime.now().toIso8601String();
       body['expiry_date'] ??= DateTime.now()
           .add(const Duration(days: 365))
